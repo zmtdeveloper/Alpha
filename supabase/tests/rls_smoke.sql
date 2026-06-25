@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(16);
 
 insert into auth.users (id, email)
 values
@@ -33,11 +33,17 @@ values
   (100, '00000000-0000-0000-0000-000000000002', 'member', 'active'),
   (200, '00000000-0000-0000-0000-000000000003', 'owner', 'active');
 
-insert into public.boards (id, workspace_id, name, slug, created_by)
+insert into public.projects (id, workspace_id, name, slug, status, lead_id, created_by, sort_order)
 overriding system value
 values
-  (1000, 100, 'Product', 'product', '00000000-0000-0000-0000-000000000001'),
-  (2000, 200, 'Platform', 'platform', '00000000-0000-0000-0000-000000000003');
+  (100, 100, 'Launch Alpha', 'launch-alpha', 'active', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 1000),
+  (200, 200, 'Scale Platform', 'scale-platform', 'active', '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003', 1000);
+
+insert into public.boards (id, workspace_id, project_id, name, slug, created_by)
+overriding system value
+values
+  (1000, 100, 100, 'Product', 'product', '00000000-0000-0000-0000-000000000001'),
+  (2000, 200, 200, 'Platform', 'platform', '00000000-0000-0000-0000-000000000003');
 
 insert into public.board_columns (id, workspace_id, board_id, name, sort_order)
 overriding system value
@@ -46,11 +52,11 @@ values
   (10001, 100, 1000, 'Doing', 2000),
   (20000, 200, 2000, 'Todo', 1000);
 
-insert into public.tasks (id, workspace_id, board_id, column_id, title, sort_order, created_by)
+insert into public.tasks (id, workspace_id, project_id, board_id, column_id, title, sort_order, created_by)
 overriding system value
 values
-  (50000, 100, 1000, 10000, 'Tenant A task', 1000, '00000000-0000-0000-0000-000000000001'),
-  (60000, 200, 2000, 20000, 'Tenant B task', 1000, '00000000-0000-0000-0000-000000000003');
+  (50000, 100, 100, 1000, 10000, 'Tenant A task', 1000, '00000000-0000-0000-0000-000000000001'),
+  (60000, 200, 200, 2000, 20000, 'Tenant B task', 1000, '00000000-0000-0000-0000-000000000003');
 
 set local role authenticated;
 set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000002';
@@ -60,6 +66,12 @@ select is(
   (select count(*)::int from public.workspaces),
   1,
   'member sees only their workspace'
+);
+
+select is(
+  (select count(*)::int from public.projects),
+  1,
+  'member sees only projects in their workspace'
 );
 
 select is(
@@ -81,11 +93,27 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$insert into public.tasks (workspace_id, board_id, column_id, title, created_by)
-    values (200, 2000, 20000, 'Cross tenant write', '00000000-0000-0000-0000-000000000002')$$,
+  $$insert into public.tasks (workspace_id, project_id, board_id, column_id, title, created_by)
+    values (200, 200, 2000, 20000, 'Cross tenant write', '00000000-0000-0000-0000-000000000002')$$,
   '42501',
   'new row violates row-level security policy for table "tasks"',
   'member cannot write into another workspace'
+);
+
+select throws_ok(
+  $$insert into public.boards (workspace_id, project_id, name, slug, created_by)
+    values (100, 200, 'Cross project board', 'cross-project-board', '00000000-0000-0000-0000-000000000002')$$,
+  'P0001',
+  'Board project workspace does not match board workspace',
+  'member cannot attach a board to another workspace project'
+);
+
+select throws_ok(
+  $$insert into public.tasks (workspace_id, project_id, board_id, column_id, title, created_by)
+    values (100, 200, 1000, 10000, 'Cross project task', '00000000-0000-0000-0000-000000000002')$$,
+  'P0001',
+  'Task workspace, project, board, and column must match',
+  'member cannot attach a task to the wrong project'
 );
 
 reset role;
@@ -103,6 +131,12 @@ select is(
   (select count(*)::int from public.boards),
   0,
   'non-member sees no boards'
+);
+
+select is(
+  (select count(*)::int from public.projects),
+  0,
+  'non-member sees no projects'
 );
 
 select is(

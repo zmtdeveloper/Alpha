@@ -86,6 +86,7 @@ export type Database = {
           description: string | null
           id: number
           name: string
+          project_id: number
           slug: string
           sort_order: number
           updated_at: string
@@ -97,6 +98,7 @@ export type Database = {
           description?: string | null
           id?: never
           name: string
+          project_id: number
           slug: string
           sort_order?: number
           updated_at?: string
@@ -108,6 +110,7 @@ export type Database = {
           description?: string | null
           id?: never
           name?: string
+          project_id?: number
           slug?: string
           sort_order?: number
           updated_at?: string
@@ -119,6 +122,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boards_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -246,6 +256,79 @@ export type Database = {
         }
         Relationships: []
       }
+      projects: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: number
+          lead_id: string | null
+          name: string
+          slug: string
+          sort_order: number
+          start_date: string | null
+          status: Database["public"]["Enums"]["project_status"]
+          target_date: string | null
+          updated_at: string
+          workspace_id: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: never
+          lead_id?: string | null
+          name: string
+          slug: string
+          sort_order?: number
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["project_status"]
+          target_date?: string | null
+          updated_at?: string
+          workspace_id: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: never
+          lead_id?: string | null
+          name?: string
+          slug?: string
+          sort_order?: number
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["project_status"]
+          target_date?: string | null
+          updated_at?: string
+          workspace_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stripe_webhook_events: {
         Row: {
           id: string
@@ -354,6 +437,7 @@ export type Database = {
           due_date: string | null
           id: number
           priority: Database["public"]["Enums"]["task_priority"]
+          project_id: number
           sort_order: number
           title: string
           updated_at: string
@@ -369,6 +453,7 @@ export type Database = {
           due_date?: string | null
           id?: never
           priority?: Database["public"]["Enums"]["task_priority"]
+          project_id: number
           sort_order?: number
           title: string
           updated_at?: string
@@ -384,6 +469,7 @@ export type Database = {
           due_date?: string | null
           id?: never
           priority?: Database["public"]["Enums"]["task_priority"]
+          project_id?: number
           sort_order?: number
           title?: string
           updated_at?: string
@@ -409,6 +495,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -568,6 +661,7 @@ export type Database = {
           due_date: string | null
           id: number
           priority: Database["public"]["Enums"]["task_priority"]
+          project_id: number
           sort_order: number
           title: string
           updated_at: string
@@ -592,6 +686,7 @@ export type Database = {
         | "canceled"
         | "unpaid"
       member_status: "active" | "invited" | "removed"
+      project_status: "planned" | "active" | "paused" | "completed" | "canceled"
       task_priority: "none" | "low" | "medium" | "high" | "urgent"
     }
     CompositeTypes: {
@@ -734,6 +829,7 @@ export const Constants = {
         "unpaid",
       ],
       member_status: ["active", "invited", "removed"],
+      project_status: ["planned", "active", "paused", "completed", "canceled"],
       task_priority: ["none", "low", "medium", "high", "urgent"],
     },
   },

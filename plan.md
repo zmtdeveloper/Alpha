@@ -59,6 +59,8 @@ The MVP should feel like a dense, work-focused application, not a marketing-firs
 - `/onboarding`: authenticated first-run setup for profile and first workspace.
 - `/invite/[token]`: invitation acceptance page.
 - `/(app)/[workspaceSlug]`: authenticated workspace home.
+- `/(app)/[workspaceSlug]/projects`: project list.
+- `/(app)/[workspaceSlug]/projects/[projectSlug]`: project overview.
 - `/(app)/[workspaceSlug]/boards`: board list.
 - `/(app)/[workspaceSlug]/boards/[boardSlug]`: kanban board.
 - `/(app)/[workspaceSlug]/settings/members`: team management.
@@ -98,9 +100,10 @@ Core tables:
 - `workspaces`: workspace metadata, slug, owner reference, creation timestamps.
 - `workspace_members`: workspace membership, user reference, role, status, timestamps.
 - `invitations`: invite token hash, email, workspace, role, inviter, expiration, accepted timestamp.
-- `boards`: workspace-owned boards with slug and ordering metadata.
+- `projects`: workspace-owned initiatives with slug, status, lead, date range, and ordering metadata.
+- `boards`: project-owned boards with workspace reference, slug, and ordering metadata.
 - `board_columns`: board-owned columns with position/order.
-- `tasks`: workspace, board, column, title, description, status/order, priority, due date, creator, timestamps.
+- `tasks`: workspace, project, board, column, title, description, status/order, priority, due date, creator, timestamps.
 - `task_assignees`: task-to-profile assignments.
 - `labels`: workspace-owned labels with name and color.
 - `task_labels`: task-to-label assignments.
@@ -258,22 +261,26 @@ Verification checks:
 
 ## Milestone 5: Board And Task MVP
 
-Objective: deliver the core board and task collaboration workflow.
+Objective: deliver the core project, board, and task collaboration workflow.
 
 Implementation tasks:
 
+- Build `/(app)/[workspaceSlug]/projects` project list.
+- Build `/(app)/[workspaceSlug]/projects/[projectSlug]` project overview.
 - Build `/(app)/[workspaceSlug]/boards` board list.
 - Build `/(app)/[workspaceSlug]/boards/[boardSlug]` kanban board.
-- Add board, column, and task CRUD.
+- Add project, board, column, and task CRUD.
 - Add task cards and a task detail panel or route-backed modal.
 - Support assignees, labels, priorities, due dates, descriptions, and task metadata.
 - Add optimistic drag/drop for task reorder and column moves.
 - Roll back optimistic UI when persistence fails.
 - Use server actions or route handlers with shared validation and authorization.
 - Keep all queries scoped by workspace and board slugs.
+- Keep project, board, and task relationships scoped to one workspace.
 
 Acceptance criteria:
 
+- Workspace members can manage projects inside their workspace.
 - Workspace members can manage boards, columns, and tasks inside their workspace.
 - Task drag/drop persists ordering and recovers cleanly from failed writes.
 - Users cannot view or mutate boards and tasks from other workspaces.

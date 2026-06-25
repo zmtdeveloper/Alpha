@@ -9,6 +9,7 @@ import {
   Menu,
   PanelsTopLeft,
   Plus,
+  Rocket,
   Search,
   Settings,
   Users,
@@ -44,6 +45,7 @@ type AppShellProps = {
 
 const primaryNav = [
   { label: "Overview", href: "", icon: Home },
+  { label: "Projects", href: "/projects", icon: Rocket },
   { label: "Boards", href: "/boards", icon: PanelsTopLeft },
   { label: "Members", href: "/settings/members", icon: Users },
   { label: "Billing", href: "/settings/billing", icon: CreditCard },

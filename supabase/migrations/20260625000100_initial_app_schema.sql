@@ -5,6 +5,7 @@ grant usage on schema private to authenticated, service_role;
 
 create type public.app_role as enum ('owner', 'admin', 'member');
 create type public.member_status as enum ('active', 'invited', 'removed');
+create type public.project_status as enum ('planned', 'active', 'paused', 'completed', 'canceled');
 create type public.task_priority as enum ('none', 'low', 'medium', 'high', 'urgent');
 create type public.billing_plan as enum ('free', 'lite', 'pro');
 create type public.billing_status as enum (
@@ -71,9 +72,37 @@ create table public.invitations (
   )
 );
 
+create table public.projects (
+  id bigint generated always as identity primary key,
+  workspace_id bigint not null references public.workspaces (id) on delete cascade,
+  name text not null,
+  slug text not null,
+  description text,
+  status public.project_status not null default 'planned',
+  lead_id uuid references public.profiles (id) on delete set null,
+  created_by uuid not null references public.profiles (id) on delete restrict,
+  sort_order numeric(20, 10) not null default 0,
+  start_date date,
+  target_date date,
+  completed_at timestamptz,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  constraint projects_name_length check (char_length(name) between 1 and 160),
+  constraint projects_slug_format check (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
+  constraint projects_workspace_slug_unique unique (workspace_id, slug),
+  constraint projects_target_after_start check (
+    start_date is null or target_date is null or target_date >= start_date
+  ),
+  constraint projects_completed_when_completed check (
+    (status = 'completed' and completed_at is not null)
+    or (status <> 'completed')
+  )
+);
+
 create table public.boards (
   id bigint generated always as identity primary key,
   workspace_id bigint not null references public.workspaces (id) on delete cascade,
+  project_id bigint not null references public.projects (id) on delete cascade,
   name text not null,
   slug text not null,
   description text,
@@ -101,6 +130,7 @@ create table public.board_columns (
 create table public.tasks (
   id bigint generated always as identity primary key,
   workspace_id bigint not null references public.workspaces (id) on delete cascade,
+  project_id bigint not null references public.projects (id) on delete cascade,
   board_id bigint not null references public.boards (id) on delete cascade,
   column_id bigint not null references public.board_columns (id) on delete restrict,
   title text not null,
@@ -180,11 +210,17 @@ create index invitations_invited_by_idx on public.invitations (invited_by);
 create index invitations_pending_email_idx
   on public.invitations (email, workspace_id)
   where accepted_at is null and revoked_at is null;
+create index projects_workspace_order_idx on public.projects (workspace_id, sort_order, id);
+create index projects_workspace_status_idx on public.projects (workspace_id, status, id);
+create index projects_lead_id_idx on public.projects (lead_id);
+create index projects_created_by_idx on public.projects (created_by);
 create index boards_workspace_order_idx on public.boards (workspace_id, sort_order, id);
+create index boards_project_order_idx on public.boards (project_id, sort_order, id);
 create index boards_created_by_idx on public.boards (created_by);
 create index board_columns_workspace_id_idx on public.board_columns (workspace_id);
 create index board_columns_board_order_idx on public.board_columns (board_id, sort_order, id);
 create index tasks_workspace_id_idx on public.tasks (workspace_id);
+create index tasks_project_id_idx on public.tasks (project_id);
 create index tasks_board_id_idx on public.tasks (board_id);
 create index tasks_column_order_idx on public.tasks (column_id, sort_order, id);
 create index tasks_created_by_idx on public.tasks (created_by);
@@ -306,6 +342,9 @@ create trigger workspace_members_set_updated_at
 create trigger invitations_set_updated_at
   before update on public.invitations
   for each row execute function public.set_updated_at();
+create trigger projects_set_updated_at
+  before update on public.projects
+  for each row execute function public.set_updated_at();
 create trigger boards_set_updated_at
   before update on public.boards
   for each row execute function public.set_updated_at();
@@ -379,6 +418,73 @@ create trigger workspace_members_prevent_last_owner_delete
   before delete on public.workspace_members
   for each row execute function public.prevent_last_owner_change();
 
+create or replace function public.ensure_project_scope()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.lead_id is not null and not exists (
+    select 1
+    from public.workspace_members wm
+    where wm.workspace_id = new.workspace_id
+      and wm.user_id = new.lead_id
+      and wm.status = 'active'
+  ) then
+    raise exception 'Project lead must be an active workspace member';
+  end if;
+
+  if not exists (
+    select 1
+    from public.workspace_members wm
+    where wm.workspace_id = new.workspace_id
+      and wm.user_id = new.created_by
+      and wm.status = 'active'
+  ) then
+    raise exception 'Project creator must be an active workspace member';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.ensure_project_scope() from public, anon, authenticated;
+
+create trigger projects_scope_check
+  before insert or update on public.projects
+  for each row execute function public.ensure_project_scope();
+
+create or replace function public.ensure_board_scope()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  actual_project_workspace_id bigint;
+begin
+  select p.workspace_id
+  into actual_project_workspace_id
+  from public.projects p
+  where p.id = new.project_id;
+
+  if actual_project_workspace_id is null
+    or actual_project_workspace_id <> new.workspace_id
+  then
+    raise exception 'Board project workspace does not match board workspace';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.ensure_board_scope() from public, anon, authenticated;
+
+create trigger boards_scope_check
+  before insert or update on public.boards
+  for each row execute function public.ensure_board_scope();
+
 create or replace function public.ensure_board_column_scope()
 returns trigger
 language plpgsql
@@ -415,13 +521,20 @@ set search_path = ''
 as $$
 declare
   actual_board_workspace_id bigint;
+  actual_board_project_id bigint;
+  actual_project_workspace_id bigint;
   actual_column_board_id bigint;
   actual_column_workspace_id bigint;
 begin
-  select b.workspace_id
-  into actual_board_workspace_id
+  select b.workspace_id, b.project_id
+  into actual_board_workspace_id, actual_board_project_id
   from public.boards b
   where b.id = new.board_id;
+
+  select p.workspace_id
+  into actual_project_workspace_id
+  from public.projects p
+  where p.id = new.project_id;
 
   select c.board_id, c.workspace_id
   into actual_column_board_id, actual_column_workspace_id
@@ -430,10 +543,12 @@ begin
 
   if actual_board_workspace_id is null
     or actual_board_workspace_id <> new.workspace_id
+    or actual_project_workspace_id <> new.workspace_id
+    or actual_board_project_id <> new.project_id
     or actual_column_workspace_id <> new.workspace_id
     or actual_column_board_id <> new.board_id
   then
-    raise exception 'Task workspace, board, and column must match';
+    raise exception 'Task workspace, project, board, and column must match';
   end if;
 
   return new;
@@ -579,6 +694,7 @@ alter table public.profiles enable row level security;
 alter table public.workspaces enable row level security;
 alter table public.workspace_members enable row level security;
 alter table public.invitations enable row level security;
+alter table public.projects enable row level security;
 alter table public.boards enable row level security;
 alter table public.board_columns enable row level security;
 alter table public.tasks enable row level security;
@@ -592,6 +708,7 @@ alter table public.profiles force row level security;
 alter table public.workspaces force row level security;
 alter table public.workspace_members force row level security;
 alter table public.invitations force row level security;
+alter table public.projects force row level security;
 alter table public.boards force row level security;
 alter table public.board_columns force row level security;
 alter table public.tasks force row level security;
@@ -696,6 +813,11 @@ create policy invitations_delete_admin on public.invitations
   for delete to authenticated
   using ((select private.has_workspace_role(workspace_id, array['owner', 'admin']::public.app_role[])));
 
+create policy projects_member_all on public.projects
+  for all to authenticated
+  using ((select private.is_workspace_member(workspace_id)))
+  with check ((select private.is_workspace_member(workspace_id)));
+
 create policy boards_member_all on public.boards
   for all to authenticated
   using ((select private.is_workspace_member(workspace_id)))
@@ -768,6 +890,8 @@ grant select, insert, update, delete on all tables in schema public to authentic
 grant usage, select on all sequences in schema public to authenticated, service_role;
 grant execute on function public.set_updated_at() to service_role;
 grant execute on function public.prevent_last_owner_change() to service_role;
+grant execute on function public.ensure_project_scope() to service_role;
+grant execute on function public.ensure_board_scope() to service_role;
 grant execute on function public.ensure_board_column_scope() to service_role;
 grant execute on function public.ensure_task_scope() to service_role;
 grant execute on function public.ensure_task_assignee_scope() to service_role;
