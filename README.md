@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Alpha
 
-## Getting Started
+Alpha is a private Next.js 16 project management app for teams that need shared workspaces, kanban boards, task collaboration, member management, subscriptions, and later AI-assisted task workflows.
 
-First, run the development server:
+The MVP is intentionally app-first: a dense, authenticated workspace experience modeled around fast issue triage, tenant-safe data access, and reliable team workflows.
+
+## Required Tools
+
+- Node.js 20 or newer
+- npm, using the committed `package-lock.json`
+- Git
+- Docker Desktop, starting in Milestone 3 when Supabase local development is added
+
+## Local Setup
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Create a local environment file:
+
+```bash
+cp .env.example .env.local
+```
+
+Most integration values are placeholders during Milestone 1. Supabase local Docker setup, migrations, and generated database types arrive in Milestone 3. Stripe, Resend, and AI provider configuration are added in later milestones.
+
+Start the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## npm Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run dev`: starts the local Next.js development server.
+- `npm run build`: creates a production build and runs Next.js validation.
+- `npm run start`: serves the production build after `npm run build`.
+- `npm run lint`: runs ESLint with Next.js core web vitals and TypeScript rules.
 
-## Learn More
+## Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+Use `.env.example` as the source of truth for expected configuration. Only variables prefixed with `NEXT_PUBLIC_` may be read by browser code.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Server-only values must stay out of client components, public bundles, logs, and committed files.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Roadmap
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The implementation roadmap lives in `plan.md`, with product intent in `prd.md`. Work one milestone at a time and keep each milestone independently reviewable.
