@@ -1,0 +1,2 @@
+-- Seed data is intentionally empty for Milestone 3.
+-- Auth, onboarding, and application seed flows are introduced in later milestones.
