@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(29);
 
 insert into auth.users (id, email)
 values
@@ -14,14 +14,16 @@ values
   ('00000000-0000-0000-0000-000000000003', 'owner-b@example.com'),
   ('00000000-0000-0000-0000-000000000004', 'outsider@example.com'),
   ('00000000-0000-0000-0000-000000000005', 'new-owner@example.com'),
-  ('00000000-0000-0000-0000-000000000006', 'new-member@example.com');
+  ('00000000-0000-0000-0000-000000000006', 'new-member@example.com'),
+  ('00000000-0000-0000-0000-000000000007', 'admin-a@example.com');
 
 insert into public.profiles (id, full_name)
 values
   ('00000000-0000-0000-0000-000000000001', 'Owner A'),
   ('00000000-0000-0000-0000-000000000002', 'Member A'),
   ('00000000-0000-0000-0000-000000000003', 'Owner B'),
-  ('00000000-0000-0000-0000-000000000004', 'Outsider');
+  ('00000000-0000-0000-0000-000000000004', 'Outsider'),
+  ('00000000-0000-0000-0000-000000000007', 'Admin A');
 
 insert into public.workspaces (id, name, slug, owner_id)
 overriding system value
@@ -33,6 +35,7 @@ insert into public.workspace_members (workspace_id, user_id, role, status)
 values
   (100, '00000000-0000-0000-0000-000000000001', 'owner', 'active'),
   (100, '00000000-0000-0000-0000-000000000002', 'member', 'active'),
+  (100, '00000000-0000-0000-0000-000000000007', 'admin', 'active'),
   (200, '00000000-0000-0000-0000-000000000003', 'owner', 'active');
 
 insert into public.projects (id, workspace_id, name, slug, status, lead_id, created_by, sort_order)
@@ -100,6 +103,14 @@ select throws_ok(
   '42501',
   'new row violates row-level security policy for table "tasks"',
   'member cannot write into another workspace'
+);
+
+select throws_ok(
+  $$insert into public.invitations (workspace_id, token_hash, email, role, invited_by, expires_at)
+    values (100, repeat('b', 64), 'blocked-invite@example.com', 'member', '00000000-0000-0000-0000-000000000002', now() + interval '7 days')$$,
+  '42501',
+  'new row violates row-level security policy for table "invitations"',
+  'member cannot create invitations'
 );
 
 select throws_ok(
@@ -176,6 +187,62 @@ select is(
 select lives_ok(
   $$select * from public.move_task(50000, 10000, 1750)$$,
   'owner can move tasks in their workspace'
+);
+
+reset role;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000007';
+set local "request.jwt.claim.email" = 'admin-a@example.com';
+
+select lives_ok(
+  $$insert into public.invitations (workspace_id, token_hash, email, role, invited_by, expires_at)
+    values (100, repeat('c', 64), 'new-admin@example.com', 'admin', '00000000-0000-0000-0000-000000000007', now() + interval '7 days')$$,
+  'admin can invite admins'
+);
+
+select throws_ok(
+  $$insert into public.invitations (workspace_id, token_hash, email, role, invited_by, expires_at)
+    values (100, repeat('d', 64), 'new-owner-invite@example.com', 'owner', '00000000-0000-0000-0000-000000000007', now() + interval '7 days')$$,
+  '42501',
+  'new row violates row-level security policy for table "invitations"',
+  'admin cannot invite owners'
+);
+
+select throws_ok(
+  $$update public.workspace_members
+    set role = 'owner'
+    where workspace_id = 100
+      and user_id = '00000000-0000-0000-0000-000000000002'$$,
+  '42501',
+  'new row violates row-level security policy for table "workspace_members"',
+  'admin cannot promote members to owner'
+);
+
+select lives_ok(
+  $$update public.workspace_members
+    set role = 'member'
+    where workspace_id = 100
+      and user_id = '00000000-0000-0000-0000-000000000001'$$,
+  'admin owner-row update attempt is filtered by RLS'
+);
+
+select is(
+  (
+    select role::text
+    from public.workspace_members
+    where workspace_id = 100
+      and user_id = '00000000-0000-0000-0000-000000000001'
+  ),
+  'owner',
+  'admin cannot change owner rows'
+);
+
+select lives_ok(
+  $$update public.workspace_members
+    set role = 'admin'
+    where workspace_id = 100
+      and user_id = '00000000-0000-0000-0000-000000000002'$$,
+  'admin can promote members to admin'
 );
 
 reset role;

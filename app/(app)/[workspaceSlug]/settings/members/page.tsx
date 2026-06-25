@@ -1,15 +1,20 @@
-import { MailPlus } from "lucide-react";
+import { MailPlus, Users } from "lucide-react";
 
-import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
+import {
+  InviteMemberDialog,
+  TeamManagement,
+} from "@/components/workspace/team-management";
+import { getTeamManagementData } from "@/lib/team/data";
 
-const members = [
-  { name: "ZMT Developer", email: "owner@alpha.local", role: "Owner" },
-  { name: "Areeba Khan", email: "areeba@alpha.local", role: "Admin" },
-  { name: "Naveed Shah", email: "naveed@alpha.local", role: "Member" },
-];
+export default async function MembersPage({
+  params,
+}: {
+  params: Promise<{ workspaceSlug: string }>;
+}) {
+  const { workspaceSlug } = await params;
+  const data = await getTeamManagementData(workspaceSlug);
 
-export default function MembersPage() {
   return (
     <div className="space-y-5">
       <section className="flex flex-col gap-3 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
@@ -20,46 +25,36 @@ export default function MembersPage() {
           <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
             Members
           </h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Manage active access and pending invitations for {data.workspace.name}.
+          </p>
         </div>
-        <Button>
-          <MailPlus />
-          Invite
-        </Button>
+        {data.canManageTeam ? (
+          <InviteMemberDialog
+            canInviteOwners={data.currentRole === "owner"}
+            trigger={
+              <Button>
+                <MailPlus />
+                Invite
+              </Button>
+            }
+            workspaceSlug={workspaceSlug}
+          />
+        ) : (
+          <div className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm text-muted-foreground">
+            <Users className="size-4" />
+            Read-only access
+          </div>
+        )}
       </section>
 
-      <section className="rounded-lg border border-border bg-card">
-        <div className="grid grid-cols-[minmax(0,1fr)_96px] border-b border-border px-4 py-3 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground sm:grid-cols-[minmax(0,1fr)_180px_96px]">
-          <span>Member</span>
-          <span className="hidden sm:block">Email</span>
-          <span>Role</span>
-        </div>
-        <div className="divide-y divide-border">
-          {members.map((member) => (
-            <article
-              key={member.email}
-              className="grid grid-cols-[minmax(0,1fr)_96px] items-center gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_180px_96px]"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{member.name}</p>
-                <p className="truncate text-xs text-muted-foreground sm:hidden">
-                  {member.email}
-                </p>
-              </div>
-              <p className="hidden truncate text-sm text-muted-foreground sm:block">
-                {member.email}
-              </p>
-              <span className="w-fit rounded-md bg-accent px-2 py-1 text-xs text-accent-foreground">
-                {member.role}
-              </span>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <EmptyState
-        description="Invitations that have not been accepted will appear here."
-        icon={MailPlus}
-        title="No pending invitations"
+      <TeamManagement
+        canManageTeam={data.canManageTeam}
+        currentRole={data.currentRole}
+        invitations={data.invitations}
+        members={data.members}
+        ownerCount={data.ownerCount}
+        workspaceSlug={workspaceSlug}
       />
     </div>
   );

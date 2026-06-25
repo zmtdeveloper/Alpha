@@ -81,19 +81,20 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1680px] px-3 sm:px-4 lg:px-6 2xl:px-8">
-        <aside className="hidden w-64 shrink-0 border-r border-border py-4 pr-3 lg:block">
+      <div className="min-h-screen w-full lg:pl-[17.5rem]">
+        <aside className="fixed inset-y-0 left-0 z-50 hidden w-[17.5rem] border-r border-border bg-card lg:block">
           <ShellSidebar
             basePath={basePath}
             navigation={navigation}
             pathname={pathname}
+            user={user}
             workspace={workspace}
             workspaces={workspaces}
           />
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-40 -mx-3 flex h-14 items-center gap-2 border-b border-border bg-background/95 px-3 backdrop-blur sm:-mx-4 sm:px-4 lg:mx-0 lg:px-4 2xl:px-5">
+          <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-5 lg:px-6 2xl:px-8">
             <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
               <DialogTrigger asChild>
                 <Button
@@ -116,6 +117,7 @@ export function AppShell({
                   basePath={basePath}
                   navigation={navigation}
                   pathname={pathname}
+                  user={user}
                   workspace={workspace}
                   workspaces={workspaces}
                   onNavigate={() => setMobileOpen(false)}
@@ -141,10 +143,12 @@ export function AppShell({
               <Bell />
             </Button>
             <ThemeToggle />
-            <UserMenu user={user} />
+            <div className="lg:hidden">
+              <UserMenu user={user} />
+            </div>
           </header>
 
-          <main className="min-w-0 flex-1 px-1 py-5 sm:px-2 lg:px-5 2xl:px-6">
+          <main className="min-w-0 flex-1 px-4 py-5 sm:px-5 lg:px-6 2xl:px-8">
             {children}
           </main>
         </div>
@@ -158,6 +162,7 @@ function ShellSidebar({
   navigation,
   onNavigate,
   pathname,
+  user,
   workspace,
   workspaces,
 }: {
@@ -169,23 +174,35 @@ function ShellSidebar({
   }>;
   onNavigate?: () => void;
   pathname: string;
+  user: {
+    email: string;
+    fullName: string;
+    initials: string;
+  };
   workspace: WorkspaceSummary;
   workspaces: WorkspaceSummary[];
 }) {
   return (
-    <div className="flex h-full min-h-svh flex-col px-3 py-4 lg:min-h-[calc(100vh-2rem)] lg:px-0 lg:py-0">
-      <div className="mb-4 flex items-center gap-2">
+    <div className="flex h-full min-h-svh flex-col px-3 py-4">
+      <div className="mb-6 flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              className="h-10 w-full justify-between px-2"
+              className="h-11 w-full justify-between px-2"
               variant="ghost"
             >
               <span className="flex min-w-0 items-center gap-2">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary font-mono text-xs font-bold text-primary-foreground">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary font-mono text-xs font-bold text-primary-foreground">
                   {workspace.name.charAt(0)}
                 </span>
-                <span className="truncate">{workspace.name}</span>
+                <span className="min-w-0 text-left">
+                  <span className="block truncate text-sm font-semibold">
+                    {workspace.name}
+                  </span>
+                  <span className="block truncate text-xs font-normal capitalize text-muted-foreground">
+                    {workspace.role}
+                  </span>
+                </span>
               </span>
               <ChevronDown className="size-4 text-muted-foreground" />
             </Button>
@@ -232,7 +249,7 @@ function ShellSidebar({
         })}
       </nav>
 
-      <div className="mt-auto space-y-1 border-t border-border pt-3">
+      <div className="mt-auto space-y-2 border-t border-border pt-3">
         <Link
           href={`${basePath}/settings/members`}
           onClick={onNavigate}
@@ -241,14 +258,17 @@ function ShellSidebar({
           <Settings className="size-4" />
           Settings
         </Link>
+        <UserMenu user={user} sidebar />
       </div>
     </div>
   );
 }
 
 function UserMenu({
+  sidebar = false,
   user,
 }: {
+  sidebar?: boolean;
   user: {
     email: string;
     fullName: string;
@@ -259,11 +279,34 @@ function UserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          className="size-9 rounded-md bg-secondary p-0 text-xs font-semibold"
+          className={cn(
+            sidebar
+              ? "h-12 w-full justify-between bg-background/45 px-2 text-left"
+              : "size-9 rounded-md bg-secondary p-0 text-xs font-semibold",
+          )}
           variant="ghost"
           aria-label="Open user menu"
         >
-          {user.initials}
+          {sidebar ? (
+            <>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-xs font-semibold text-secondary-foreground">
+                  {user.initials}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium">
+                    {user.fullName}
+                  </span>
+                  <span className="block truncate text-xs font-normal text-muted-foreground">
+                    {user.email}
+                  </span>
+                </span>
+              </span>
+              <ChevronDown className="size-4 text-muted-foreground" />
+            </>
+          ) : (
+            user.initials
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
