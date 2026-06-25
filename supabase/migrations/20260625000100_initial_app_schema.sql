@@ -248,7 +248,11 @@ language sql
 stable
 set search_path = ''
 as $$
-  select lower(coalesce(auth.jwt() ->> 'email', ''));
+  select lower(coalesce(
+    auth.jwt() ->> 'email',
+    nullif(current_setting('request.jwt.claim.email', true), ''),
+    ''
+  ));
 $$;
 
 create or replace function private.is_workspace_member(target_workspace_id bigint)

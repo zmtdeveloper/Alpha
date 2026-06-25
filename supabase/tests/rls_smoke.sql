@@ -5,14 +5,16 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(16);
+select plan(22);
 
 insert into auth.users (id, email)
 values
   ('00000000-0000-0000-0000-000000000001', 'owner-a@example.com'),
   ('00000000-0000-0000-0000-000000000002', 'member-a@example.com'),
   ('00000000-0000-0000-0000-000000000003', 'owner-b@example.com'),
-  ('00000000-0000-0000-0000-000000000004', 'outsider@example.com');
+  ('00000000-0000-0000-0000-000000000004', 'outsider@example.com'),
+  ('00000000-0000-0000-0000-000000000005', 'new-owner@example.com'),
+  ('00000000-0000-0000-0000-000000000006', 'new-member@example.com');
 
 insert into public.profiles (id, full_name)
 values
@@ -174,6 +176,69 @@ select is(
 select lives_ok(
   $$select * from public.move_task(50000, 10000, 1750)$$,
   'owner can move tasks in their workspace'
+);
+
+reset role;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000005';
+set local "request.jwt.claim.email" = 'new-owner@example.com';
+
+select lives_ok(
+  $$select public.create_workspace_for_current_user('New Owner', 'Workspace A', 'workspace-a')$$,
+  'new user can create first workspace through onboarding function'
+);
+
+select is(
+  (
+    select slug
+    from public.workspaces
+    where owner_id = '00000000-0000-0000-0000-000000000005'
+  ),
+  'workspace-a-2',
+  'onboarding function resolves duplicate workspace slugs'
+);
+
+select is(
+  (
+    select role::text
+    from public.workspace_members
+    where user_id = '00000000-0000-0000-0000-000000000005'
+  ),
+  'owner',
+  'onboarding function creates active owner membership'
+);
+
+reset role;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000006';
+set local "request.jwt.claim.email" = 'new-member@example.com';
+
+select lives_ok(
+  $$select * from public.accept_workspace_invitation(repeat('a', 64))$$,
+  'invited user can accept a valid invitation'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.workspace_members
+    where workspace_id = 100
+      and user_id = '00000000-0000-0000-0000-000000000006'
+      and status = 'active'
+  ),
+  1,
+  'invite acceptance creates active member record'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.invitations
+    where token_hash = repeat('a', 64)
+      and accepted_at is not null
+  ),
+  1,
+  'invite acceptance marks the invitation accepted'
 );
 
 select * from finish();

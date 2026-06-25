@@ -5,7 +5,6 @@ import {
   ChevronDown,
   CreditCard,
   Home,
-  LogOut,
   Menu,
   PanelsTopLeft,
   Plus,
@@ -16,8 +15,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
+import { SignOutMenuItem } from "@/components/sign-out-menu-item";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +40,20 @@ import { cn } from "@/lib/utils";
 
 type AppShellProps = {
   children: React.ReactNode;
-  workspaceSlug: string;
+  user: {
+    email: string;
+    fullName: string;
+    initials: string;
+  };
+  workspace: WorkspaceSummary;
+  workspaces: WorkspaceSummary[];
+};
+
+type WorkspaceSummary = {
+  id: number;
+  name: string;
+  role: "owner" | "admin" | "member";
+  slug: string;
 };
 
 const primaryNav = [
@@ -51,24 +64,15 @@ const primaryNav = [
   { label: "Billing", href: "/settings/billing", icon: CreditCard },
 ];
 
-const workspaceSamples = ["Alpha", "Platform", "Design Ops"];
-
-function formatWorkspaceName(slug: string) {
-  return slug
-    .split("-")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-export function AppShell({ children, workspaceSlug }: AppShellProps) {
+export function AppShell({
+  children,
+  user,
+  workspace,
+  workspaces,
+}: AppShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const workspaceName = useMemo(
-    () => formatWorkspaceName(workspaceSlug) || "Workspace",
-    [workspaceSlug],
-  );
-  const basePath = `/${workspaceSlug}`;
+  const basePath = `/${workspace.slug}`;
 
   const navigation = primaryNav.map((item) => ({
     ...item,
@@ -83,7 +87,8 @@ export function AppShell({ children, workspaceSlug }: AppShellProps) {
             basePath={basePath}
             navigation={navigation}
             pathname={pathname}
-            workspaceName={workspaceName}
+            workspace={workspace}
+            workspaces={workspaces}
           />
         </aside>
 
@@ -111,7 +116,8 @@ export function AppShell({ children, workspaceSlug }: AppShellProps) {
                   basePath={basePath}
                   navigation={navigation}
                   pathname={pathname}
-                  workspaceName={workspaceName}
+                  workspace={workspace}
+                  workspaces={workspaces}
                   onNavigate={() => setMobileOpen(false)}
                 />
               </DialogContent>
@@ -119,7 +125,7 @@ export function AppShell({ children, workspaceSlug }: AppShellProps) {
 
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-foreground lg:hidden">
-                {workspaceName}
+                {workspace.name}
               </p>
               <div className="hidden h-9 max-w-md items-center gap-2 rounded-md border border-border bg-muted/40 px-3 text-sm text-muted-foreground lg:flex">
                 <Search className="size-4" />
@@ -135,7 +141,7 @@ export function AppShell({ children, workspaceSlug }: AppShellProps) {
               <Bell />
             </Button>
             <ThemeToggle />
-            <UserMenu />
+            <UserMenu user={user} />
           </header>
 
           <main className="min-w-0 flex-1 px-1 py-5 sm:px-2 lg:px-5 2xl:px-6">
@@ -152,7 +158,8 @@ function ShellSidebar({
   navigation,
   onNavigate,
   pathname,
-  workspaceName,
+  workspace,
+  workspaces,
 }: {
   basePath: string;
   navigation: Array<{
@@ -162,7 +169,8 @@ function ShellSidebar({
   }>;
   onNavigate?: () => void;
   pathname: string;
-  workspaceName: string;
+  workspace: WorkspaceSummary;
+  workspaces: WorkspaceSummary[];
 }) {
   return (
     <div className="flex h-full min-h-svh flex-col px-3 py-4 lg:min-h-[calc(100vh-2rem)] lg:px-0 lg:py-0">
@@ -175,20 +183,24 @@ function ShellSidebar({
             >
               <span className="flex min-w-0 items-center gap-2">
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary font-mono text-xs font-bold text-primary-foreground">
-                  {workspaceName.charAt(0)}
+                  {workspace.name.charAt(0)}
                 </span>
-                <span className="truncate">{workspaceName}</span>
+                <span className="truncate">{workspace.name}</span>
               </span>
               <ChevronDown className="size-4 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
             <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-            {workspaceSamples.map((workspace) => (
-              <DropdownMenuItem key={workspace}>{workspace}</DropdownMenuItem>
+            {workspaces.map((item) => (
+              <DropdownMenuItem asChild key={item.id}>
+                <Link href={`/${item.slug}`} onClick={onNavigate}>
+                  {item.name}
+                </Link>
+              </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem disabled>
               <Plus />
               New workspace
             </DropdownMenuItem>
@@ -234,7 +246,15 @@ function ShellSidebar({
   );
 }
 
-function UserMenu() {
+function UserMenu({
+  user,
+}: {
+  user: {
+    email: string;
+    fullName: string;
+    initials: string;
+  };
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -243,24 +263,21 @@ function UserMenu() {
           variant="ghost"
           aria-label="Open user menu"
         >
-          ZM
+          {user.initials}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
-          <span className="block text-sm">ZMT Developer</span>
-          <span className="block text-xs font-normal text-muted-foreground">
-            owner@alpha.local
+          <span className="block truncate text-sm">{user.fullName}</span>
+          <span className="block truncate text-xs font-normal text-muted-foreground">
+            {user.email}
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem>Profile</DropdownMenuItem>
         <DropdownMenuItem>Preferences</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <LogOut />
-          Sign out
-        </DropdownMenuItem>
+        <SignOutMenuItem />
       </DropdownMenuContent>
     </DropdownMenu>
   );

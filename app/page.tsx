@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+import {
+  getCurrentUser,
+  redirectToWorkspaceOrOnboarding,
+} from "@/lib/auth/data";
+
 const columns = [
   {
     title: "Triage",
@@ -18,7 +23,13 @@ const columns = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const user = await getCurrentUser();
+
+  if (user) {
+    await redirectToWorkspaceOrOnboarding();
+  }
+
   return (
     <main className="min-h-screen bg-[#0b0d10] px-4 py-6 text-zinc-100 sm:px-6 lg:px-8 2xl:px-10">
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[1680px] flex-col">

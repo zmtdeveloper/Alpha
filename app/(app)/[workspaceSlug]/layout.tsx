@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { getWorkspaceShellContext } from "@/lib/auth/data";
 
 export default async function WorkspaceLayout({
   children,
@@ -8,6 +9,15 @@ export default async function WorkspaceLayout({
   params: Promise<{ workspaceSlug: string }>;
 }) {
   const { workspaceSlug } = await params;
+  const context = await getWorkspaceShellContext(workspaceSlug);
 
-  return <AppShell workspaceSlug={workspaceSlug}>{children}</AppShell>;
+  return (
+    <AppShell
+      user={context.user}
+      workspace={context.workspace}
+      workspaces={context.workspaces}
+    >
+      {children}
+    </AppShell>
+  );
 }

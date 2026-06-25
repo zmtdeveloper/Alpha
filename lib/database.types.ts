@@ -645,6 +645,36 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_workspace_invitation: {
+        Args: { p_token_hash: string }
+        Returns: {
+          member_role: Database["public"]["Enums"]["app_role"]
+          workspace_id: number
+          workspace_name: string
+          workspace_slug: string
+        }[]
+      }
+      create_workspace_for_current_user: {
+        Args: {
+          p_full_name: string
+          p_workspace_name: string
+          p_workspace_slug: string
+        }
+        Returns: {
+          created_at: string
+          id: number
+          name: string
+          owner_id: string
+          slug: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "workspaces"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       move_task: {
         Args: {
           p_new_sort_order: number
