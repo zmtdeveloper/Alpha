@@ -27,6 +27,12 @@ export default async function BoardsPage({
     0,
   );
   const taskTotal = boards.reduce((total, board) => total + board.taskCount, 0);
+  const boardGroups = projects
+    .map((project) => ({
+      ...project,
+      boards: boards.filter((board) => board.project_id === project.id),
+    }))
+    .filter((project) => project.boards.length > 0);
 
   return (
     <div className="space-y-5">
@@ -73,82 +79,128 @@ export default async function BoardsPage({
           icon={Plus}
           title="Create a project first"
         />
-      ) : boards.length > 0 ? (
-        <section className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-          {boards.map((board) => (
-            <article
-              key={board.id}
-              className="task-card group rounded-md border border-border p-4 shadow-sm shadow-black/10 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-start gap-3">
-                  <span className="task-chip flex size-9 shrink-0 items-center justify-center rounded-md">
-                    <PanelsTopLeft className="size-4 text-primary" />
-                  </span>
+      ) : boardGroups.length > 0 ? (
+        <section className="space-y-7">
+          {boardGroups.map((project) => {
+            const projectTaskTotal = project.boards.reduce(
+              (total, board) => total + board.taskCount,
+              0,
+            );
+            const projectColumnTotal = project.boards.reduce(
+              (total, board) => total + board.columnCount,
+              0,
+            );
+
+            return (
+              <section className="space-y-3" key={project.id}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <div className="min-w-0">
                     <Link
-                      className="block truncate text-base font-semibold outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-                      href={`/${workspaceSlug}/boards/${board.slug}`}
+                      className="inline-flex min-w-0 items-center gap-2 text-base font-semibold outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                      href={`/${workspaceSlug}/projects/${project.slug}`}
                     >
-                      {board.name}
+                      <Layers3 className="size-4 shrink-0 text-primary" />
+                      <span className="truncate">{project.name}</span>
                     </Link>
-                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                      {board.description || `${board.projectName} workflow`}
-                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
+                        <PanelsTopLeft className="size-3.5 text-primary" />
+                        {project.boards.length} boards
+                      </span>
+                      <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
+                        <Clock3 className="size-3.5 text-amber-200" />
+                        {projectTaskTotal} tasks
+                      </span>
+                      <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
+                        <Columns3 className="size-3.5 text-emerald-200" />
+                        {projectColumnTotal} columns
+                      </span>
+                    </div>
                   </div>
+                  <Link
+                    className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    href={`/${workspaceSlug}/projects/${project.slug}`}
+                  >
+                    View project
+                    <ArrowRight className="size-3.5" />
+                  </Link>
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <BoardDialog
-                    board={board}
-                    projects={projects}
-                    trigger={
-                      <Button
-                        aria-label="Edit board"
-                        className="size-8"
-                        size="icon"
-                        variant="ghost"
-                      >
-                        <Pencil />
-                      </Button>
-                    }
-                    workspaceSlug={workspaceSlug}
-                  />
-                  <DeleteButton
-                    id={board.id}
-                    kind="board"
-                    label="Delete board"
-                    workspaceSlug={workspaceSlug}
-                  />
+
+                <div className="overflow-hidden rounded-md border border-border bg-card/40 shadow-sm shadow-black/10">
+                  <div className="hidden grid-cols-[minmax(0,1fr)_7rem_7rem_8.5rem] border-b border-border bg-muted/25 px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground md:grid">
+                    <span>Board</span>
+                    <span>Tasks</span>
+                    <span>Columns</span>
+                    <span className="text-right">Actions</span>
+                  </div>
+                  {project.boards.map((board) => (
+                    <div
+                      className="grid gap-3 border-b border-border px-4 py-3 transition-colors last:border-b-0 hover:bg-accent/35 md:grid-cols-[minmax(0,1fr)_7rem_7rem_8.5rem] md:items-center"
+                      key={board.id}
+                    >
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className="task-chip flex size-8 shrink-0 items-center justify-center rounded-md">
+                          <PanelsTopLeft className="size-4 text-primary" />
+                        </span>
+                        <div className="min-w-0">
+                          <Link
+                            className="block truncate font-semibold outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                            href={`/${workspaceSlug}/boards/${board.slug}`}
+                          >
+                            {board.name}
+                          </Link>
+                          <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
+                            {board.description || "Board workflow"}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="task-chip inline-flex h-7 w-fit items-center gap-1 rounded-md px-2 text-xs text-muted-foreground">
+                        <Clock3 className="size-3.5 text-amber-200" />
+                        {board.taskCount}
+                        <span className="md:hidden">tasks</span>
+                      </span>
+                      <span className="task-chip inline-flex h-7 w-fit items-center gap-1 rounded-md px-2 text-xs text-muted-foreground">
+                        <Columns3 className="size-3.5 text-emerald-200" />
+                        {board.columnCount}
+                        <span className="md:hidden">columns</span>
+                      </span>
+                      <div className="flex items-center gap-1 md:justify-end">
+                        <BoardDialog
+                          board={board}
+                          projects={projects}
+                          trigger={
+                            <Button
+                              aria-label="Edit board"
+                              className="size-8"
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <Pencil />
+                            </Button>
+                          }
+                          workspaceSlug={workspaceSlug}
+                        />
+                        <DeleteButton
+                          id={board.id}
+                          kind="board"
+                          label="Delete board"
+                          workspaceSlug={workspaceSlug}
+                        />
+                        <Button asChild className="size-8" size="icon" variant="ghost">
+                          <Link
+                            aria-label={`Open ${board.name}`}
+                            href={`/${workspaceSlug}/boards/${board.slug}`}
+                          >
+                            <ArrowRight />
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
-                  <Layers3 className="size-3.5 text-sky-200" />
-                  {board.projectName}
-                </span>
-                <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
-                  <Clock3 className="size-3.5 text-amber-200" />
-                  {board.taskCount} tasks
-                </span>
-                <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
-                  <Columns3 className="size-3.5 text-emerald-200" />
-                  {board.columnCount} columns
-                </span>
-              </div>
-              <div className="mt-5 flex items-center justify-between border-t border-border/70 pt-3 text-sm">
-                <span className="text-muted-foreground">
-                  Board execution flow
-                </span>
-                <Link
-                  className="inline-flex items-center gap-1 font-medium text-foreground outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-                  href={`/${workspaceSlug}/boards/${board.slug}`}
-                >
-                  Open board
-                  <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              </div>
-            </article>
-          ))}
+              </section>
+            );
+          })}
         </section>
       ) : (
         <EmptyState
