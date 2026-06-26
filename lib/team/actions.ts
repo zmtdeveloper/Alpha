@@ -4,10 +4,12 @@ import { randomBytes } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { after } from "next/server";
 
 import { hashInviteToken } from "@/lib/auth/invitations";
 import { expiredSessionMessage, getActionUser } from "@/lib/auth/session";
 import type { Enums, Tables } from "@/lib/database.types";
+import { sendInvitationEmail } from "@/lib/email/notifications";
 import { createClient } from "@/lib/supabase/server";
 import {
   formString,
@@ -28,11 +30,13 @@ type WorkspaceMemberRow = Pick<
 type TeamActionContext =
   | {
       actorRole: Extract<AppRole, "admin" | "owner">;
+      actorName: string;
       error?: never;
       supabase: SupabaseServerClient;
       userId: string;
       workspace: {
         id: number;
+        name: string;
         slug: string;
       };
     }
@@ -79,7 +83,7 @@ async function requireTeamManager(
 
   const { data: workspace, error: workspaceError } = await supabase
     .from("workspaces")
-    .select("id, slug")
+    .select("id, name, slug")
     .eq("slug", workspaceSlug)
     .maybeSingle();
 
@@ -105,6 +109,7 @@ async function requireTeamManager(
 
   return {
     actorRole: membership.role,
+    actorName: user.name,
     supabase,
     userId: user.id,
     workspace,
@@ -165,22 +170,40 @@ export async function createInvitation(
 
   const token = createInviteToken();
   const inviteUrl = await buildInviteUrl(token);
-  const { error } = await context.supabase.from("invitations").insert({
-    email: parsed.data.email,
-    expires_at: new Date(Date.now() + invitationLifetimeMs).toISOString(),
-    invited_by: context.userId,
-    role: parsed.data.role,
-    token_hash: hashInviteToken(token),
-    workspace_id: context.workspace.id,
-  });
+  const expiresAt = new Date(Date.now() + invitationLifetimeMs).toISOString();
+  const { data: invitation, error } = await context.supabase
+    .from("invitations")
+    .insert({
+      email: parsed.data.email,
+      expires_at: expiresAt,
+      invited_by: context.userId,
+      role: parsed.data.role,
+      token_hash: hashInviteToken(token),
+      workspace_id: context.workspace.id,
+    })
+    .select("id")
+    .single();
 
-  if (error) {
+  if (error || !invitation) {
     return actionMessage("Invitation could not be created.", fields);
   }
 
+  after(async () => {
+    await sendInvitationEmail({
+      email: parsed.data.email,
+      expiresAt,
+      invitationId: invitation.id,
+      inviteUrl,
+      inviterName: context.actorName,
+      role: parsed.data.role,
+      workspaceName: context.workspace.name,
+      workspaceSlug: context.workspace.slug,
+    });
+  });
+
   revalidateMembers(parsed.data.workspaceSlug);
 
-  return okMessage("Invitation created.", {
+  return okMessage("Invitation created and email queued.", {
     ...fields,
     inviteUrl,
   });
@@ -217,10 +240,11 @@ export async function resendInvitation(
 
   const token = createInviteToken();
   const inviteUrl = await buildInviteUrl(token);
+  const expiresAt = new Date(Date.now() + invitationLifetimeMs).toISOString();
   const { error } = await context.supabase
     .from("invitations")
     .update({
-      expires_at: new Date(Date.now() + invitationLifetimeMs).toISOString(),
+      expires_at: expiresAt,
       token_hash: hashInviteToken(token),
     })
     .eq("workspace_id", context.workspace.id)
@@ -232,9 +256,22 @@ export async function resendInvitation(
     return actionMessage("Invitation could not be resent.");
   }
 
+  after(async () => {
+    await sendInvitationEmail({
+      email: invitation.email,
+      expiresAt,
+      invitationId: invitation.id,
+      inviteUrl,
+      inviterName: context.actorName,
+      role: invitation.role,
+      workspaceName: context.workspace.name,
+      workspaceSlug: context.workspace.slug,
+    });
+  });
+
   revalidateMembers(parsed.data.workspaceSlug);
 
-  return okMessage("Invitation link refreshed.", { inviteUrl });
+  return okMessage("Invitation email resent.", { inviteUrl });
 }
 
 export async function revokeInvitation(
@@ -396,7 +433,7 @@ async function getScopedInvitation(
 ) {
   const { data } = await supabase
     .from("invitations")
-    .select("accepted_at, id, revoked_at, role")
+    .select("accepted_at, email, id, revoked_at, role")
     .eq("workspace_id", workspaceId)
     .eq("id", invitationId)
     .maybeSingle();

@@ -9,22 +9,24 @@ import {
   PanelsTopLeft,
   Plus,
   Rocket,
-  Search,
   Settings,
   Square,
+  User,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useActionState, useState } from "react";
 
 import { SignOutMenuItem } from "@/components/sign-out-menu-item";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { WorkspaceSearch } from "@/components/workspace-search";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -37,6 +39,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { createWorkspace } from "@/lib/auth/actions";
+import {
+  type AuthActionState,
+  initialAuthActionState,
+} from "@/lib/auth/validation";
 import { cn } from "@/lib/utils";
 
 type AppShellProps = {
@@ -132,10 +140,7 @@ export function AppShell({
               <p className="truncate text-sm font-medium text-foreground lg:hidden">
                 {workspace.name}
               </p>
-              <div className="hidden h-8 max-w-md items-center gap-2 rounded-md border border-border bg-muted/40 px-3 text-sm text-muted-foreground lg:flex">
-                <Search className="size-4" />
-                <span>Search tasks, boards, or teammates</span>
-              </div>
+              <WorkspaceSearch workspaceSlug={workspace.slug} />
             </div>
 
             <Button asChild size="sm" className="hidden sm:inline-flex">
@@ -156,7 +161,7 @@ export function AppShell({
             </Button>
             <ThemeToggle />
             <div className="lg:hidden">
-              <UserMenu user={user} />
+              <UserMenu basePath={basePath} user={user} />
             </div>
           </header>
 
@@ -194,92 +199,197 @@ function ShellSidebar({
   workspace: WorkspaceSummary;
   workspaces: WorkspaceSummary[];
 }) {
+  const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
+
   return (
-    <div className="flex h-full min-h-svh flex-col px-3 py-4">
-      <div className="mb-6 flex items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              className="h-10 w-full justify-between px-2"
-              variant="ghost"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background/40 text-primary">
-                  <Square className="size-4" />
-                </span>
-                <span className="min-w-0 text-left">
-                  <span className="block truncate text-sm font-semibold">
-                    {workspace.name}
+    <>
+      <div className="flex h-full min-h-svh flex-col px-3 py-4">
+        <div className="mb-6 flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                className="h-10 w-full justify-between px-2"
+                variant="ghost"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background/40 text-primary">
+                    <Square className="size-4" />
                   </span>
-                  <span className="block truncate text-xs font-normal capitalize text-muted-foreground">
-                    {workspace.role}
+                  <span className="min-w-0 text-left">
+                    <span className="block truncate text-sm font-semibold">
+                      {workspace.name}
+                    </span>
+                    <span className="block truncate text-xs font-normal capitalize text-muted-foreground">
+                      {workspace.role}
+                    </span>
                   </span>
                 </span>
-              </span>
-              <ChevronDown className="size-4 text-muted-foreground" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-            {workspaces.map((item) => (
-              <DropdownMenuItem asChild key={item.id}>
-                <Link href={`/${item.slug}`} onClick={onNavigate}>
-                  {item.name}
-                </Link>
+                <ChevronDown className="size-4 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+              {workspaces.map((item) => (
+                <DropdownMenuItem asChild key={item.id}>
+                  <Link href={`/${item.slug}`} onClick={onNavigate}>
+                    {item.name}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setWorkspaceDialogOpen(true)}>
+                <Plus />
+                New workspace
               </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>
-              <Plus />
-              New workspace
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <nav className="space-y-1" aria-label="Primary navigation">
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              pathname === item.href ||
+              (item.href !== basePath && pathname.startsWith(item.href));
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  "flex h-9 items-center gap-2 rounded-md px-2 text-sm text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  isActive &&
+                    "bg-accent text-accent-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset]",
+                )}
+              >
+                <Icon className="size-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="mt-auto space-y-2 border-t border-border pt-3">
+          <Link
+            href={`${basePath}/settings/members`}
+            onClick={onNavigate}
+            className="flex h-9 items-center gap-2 rounded-md px-2 text-sm text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <Settings className="size-4" />
+            Settings
+          </Link>
+          <UserMenu
+            basePath={basePath}
+            onNavigate={onNavigate}
+            sidebar
+            user={user}
+          />
+        </div>
       </div>
-
-      <nav className="space-y-1" aria-label="Primary navigation">
-        {navigation.map((item) => {
-          const Icon = item.icon;
-          const isActive =
-            pathname === item.href ||
-            (item.href !== basePath && pathname.startsWith(item.href));
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "flex h-9 items-center gap-2 rounded-md px-2 text-sm text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                isActive && "bg-accent text-accent-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset]",
-              )}
-            >
-              <Icon className="size-4" />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="mt-auto space-y-2 border-t border-border pt-3">
-        <Link
-          href={`${basePath}/settings/members`}
-          onClick={onNavigate}
-          className="flex h-9 items-center gap-2 rounded-md px-2 text-sm text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <Settings className="size-4" />
-          Settings
-        </Link>
-        <UserMenu user={user} sidebar />
-      </div>
-    </div>
+      <NewWorkspaceDialog
+        open={workspaceDialogOpen}
+        onOpenChange={setWorkspaceDialogOpen}
+        userFullName={user.fullName}
+      />
+    </>
   );
 }
 
+function NewWorkspaceDialog({
+  onOpenChange,
+  open,
+  userFullName,
+}: {
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  userFullName: string;
+}) {
+  const [state, formAction, pending] = useActionState(
+    createWorkspace,
+    initialAuthActionState,
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl bg-popover">
+        <DialogHeader>
+          <DialogTitle>New workspace</DialogTitle>
+          <DialogDescription>
+            Create another workspace for a separate team, client, or product.
+          </DialogDescription>
+        </DialogHeader>
+        <form action={formAction} className="space-y-4">
+          <input
+            name="fullName"
+            type="hidden"
+            value={state.fields?.fullName ?? userFullName}
+          />
+          <label className="block space-y-2 text-sm" htmlFor="workspaceName">
+            <span className="font-medium text-foreground">Workspace name</span>
+            <Input
+              aria-describedby={
+                fieldError(state, "workspaceName")
+                  ? "workspaceName-error"
+                  : undefined
+              }
+              aria-invalid={Boolean(fieldError(state, "workspaceName"))}
+              autoComplete="organization"
+              autoFocus
+              defaultValue={state.fields?.workspaceName ?? ""}
+              id="workspaceName"
+              name="workspaceName"
+              placeholder="Alpha"
+              type="text"
+            />
+            {fieldError(state, "workspaceName") ? (
+              <span
+                className="block text-sm text-destructive"
+                id="workspaceName-error"
+              >
+                {fieldError(state, "workspaceName")}
+              </span>
+            ) : null}
+          </label>
+
+          {state.message ? (
+            <p className="text-sm text-destructive" role="status">
+              {state.message}
+            </p>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              disabled={pending}
+              onClick={() => onOpenChange(false)}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button disabled={pending} type="submit">
+              <Plus />
+              {pending ? "Creating" : "Create workspace"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function fieldError(state: AuthActionState, name: string) {
+  return state.errors?.[name]?.[0];
+}
+
 function UserMenu({
+  basePath,
+  onNavigate,
   sidebar = false,
   user,
 }: {
+  basePath: string;
+  onNavigate?: () => void;
   sidebar?: boolean;
   user: {
     email: string;
@@ -329,8 +439,18 @@ function UserMenu({
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>Profile</DropdownMenuItem>
-        <DropdownMenuItem>Preferences</DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={`${basePath}/settings/profile`} onClick={onNavigate}>
+            <User />
+            Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={`${basePath}/settings/preferences`} onClick={onNavigate}>
+            <Settings />
+            Preferences
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <SignOutMenuItem />
       </DropdownMenuContent>

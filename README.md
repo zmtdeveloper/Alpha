@@ -40,7 +40,8 @@ $env:SUPABASE_TELEMETRY_DISABLED='1'
 npm run supabase:start
 ```
 
-Stripe, Resend, and AI provider configuration are added in later milestones.
+Stripe and AI provider configuration are added in later milestones. Resend is
+used now for welcome and invitation emails.
 
 Start the development server:
 
@@ -97,6 +98,14 @@ RLS helper functions are kept in the private schema and are not exposed through 
 Use `.env.example` as the source of truth for expected configuration. Only variables prefixed with `NEXT_PUBLIC_` may be read by browser code.
 
 Server-only values must stay out of client components, public bundles, logs, and committed files.
+
+For email delivery, set:
+
+- `RESEND_API_KEY`: a server-only Resend API key.
+- `EMAIL_FROM`: the verified sender, for example `Alpha <hello@example.com>`.
+
+If either email value is missing, welcome and invitation emails are skipped and
+the core onboarding/invitation flow still completes.
 
 ## Roadmap
 

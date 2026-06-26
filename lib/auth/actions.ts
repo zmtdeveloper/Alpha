@@ -1,6 +1,7 @@
 "use server";
 
 import { after } from "next/server";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createSlug } from "@/lib/auth/slug";
@@ -15,7 +16,7 @@ import {
   onboardingSchema,
   signupSchema,
 } from "@/lib/auth/validation";
-import { sendWelcomeEmail } from "@/lib/email/welcome";
+import { sendWelcomeEmail } from "@/lib/email/notifications";
 import { createClient } from "@/lib/supabase/server";
 
 function fieldErrors(error: { flatten: () => { fieldErrors: AuthActionState["errors"] } }) {
@@ -174,11 +175,15 @@ export async function createWorkspace(
     );
   }
 
+  const workspaceUrl = await buildWorkspaceUrl(workspace.slug);
+
   after(async () => {
     await sendWelcomeEmail({
       email: user.email,
       fullName: parsed.data.fullName,
       workspaceName: workspace.name,
+      workspaceSlug: workspace.slug,
+      workspaceUrl,
     });
   });
 
@@ -227,6 +232,16 @@ function isStaleSessionError(error: { code?: string; message?: string } | null) 
     message.includes("profiles_id_fkey") ||
     message.includes("auth.users")
   );
+}
+
+async function buildWorkspaceUrl(workspaceSlug: string) {
+  const headerStore = await headers();
+  const origin =
+    headerStore.get("origin") ??
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    "http://localhost:3000";
+
+  return `${origin}/${workspaceSlug}`;
 }
 
 export async function signOut() {
