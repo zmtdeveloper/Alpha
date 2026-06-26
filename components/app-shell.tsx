@@ -11,6 +11,7 @@ import {
   Rocket,
   Search,
   Settings,
+  Square,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -40,6 +41,7 @@ import { cn } from "@/lib/utils";
 
 type AppShellProps = {
   children: React.ReactNode;
+  quickTaskBoardSlug: string | null;
   user: {
     email: string;
     fullName: string;
@@ -66,6 +68,7 @@ const primaryNav = [
 
 export function AppShell({
   children,
+  quickTaskBoardSlug,
   user,
   workspace,
   workspaces,
@@ -82,7 +85,7 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="min-h-screen w-full lg:pl-[17.5rem]">
-        <aside className="fixed inset-y-0 left-0 z-50 hidden w-[17.5rem] border-r border-border bg-card lg:block">
+        <aside className="fixed inset-y-0 left-0 z-50 hidden w-[17.5rem] border-r border-border bg-[var(--sidebar)] lg:block">
           <ShellSidebar
             basePath={basePath}
             navigation={navigation}
@@ -129,15 +132,24 @@ export function AppShell({
               <p className="truncate text-sm font-medium text-foreground lg:hidden">
                 {workspace.name}
               </p>
-              <div className="hidden h-9 max-w-md items-center gap-2 rounded-md border border-border bg-muted/40 px-3 text-sm text-muted-foreground lg:flex">
+              <div className="hidden h-8 max-w-md items-center gap-2 rounded-md border border-border bg-muted/40 px-3 text-sm text-muted-foreground lg:flex">
                 <Search className="size-4" />
                 <span>Search tasks, boards, or teammates</span>
               </div>
             </div>
 
-            <Button size="sm" className="hidden sm:inline-flex">
-              <Plus />
-              New task
+            <Button asChild size="sm" className="hidden sm:inline-flex">
+              <Link
+                className="inline-flex items-center gap-2"
+                href={
+                  quickTaskBoardSlug
+                    ? `${basePath}/boards/${quickTaskBoardSlug}?newTask=1`
+                    : `${basePath}/boards`
+                }
+              >
+                <Plus />
+                New task
+              </Link>
             </Button>
             <Button size="icon" variant="ghost" aria-label="Notifications">
               <Bell />
@@ -188,12 +200,12 @@ function ShellSidebar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              className="h-11 w-full justify-between px-2"
+              className="h-10 w-full justify-between px-2"
               variant="ghost"
             >
               <span className="flex min-w-0 items-center gap-2">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary font-mono text-xs font-bold text-primary-foreground">
-                  {workspace.name.charAt(0)}
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background/40 text-primary">
+                  <Square className="size-4" />
                 </span>
                 <span className="min-w-0 text-left">
                   <span className="block truncate text-sm font-semibold">
@@ -239,7 +251,7 @@ function ShellSidebar({
               onClick={onNavigate}
               className={cn(
                 "flex h-9 items-center gap-2 rounded-md px-2 text-sm text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                isActive && "bg-accent text-accent-foreground",
+                isActive && "bg-accent text-accent-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset]",
               )}
             >
               <Icon className="size-4" />
@@ -281,7 +293,7 @@ function UserMenu({
         <Button
           className={cn(
             sidebar
-              ? "h-12 w-full justify-between bg-background/45 px-2 text-left"
+              ? "h-12 w-full justify-between bg-background/35 px-2 text-left"
               : "size-9 rounded-md bg-secondary p-0 text-xs font-semibold",
           )}
           variant="ghost"

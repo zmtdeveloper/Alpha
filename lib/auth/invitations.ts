@@ -2,14 +2,17 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import type { Enums, Tables } from "@/lib/database.types";
+import type { Enums } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 
-type InvitationPreviewRow = Pick<
-  Tables<"invitations">,
-  "accepted_at" | "email" | "expires_at" | "revoked_at" | "role"
-> & {
-  workspaces: Pick<Tables<"workspaces">, "name" | "slug"> | null;
+type InvitationPreviewRow = {
+  accepted_at: string | null;
+  email: string;
+  expires_at: string;
+  revoked_at: string | null;
+  role: Enums<"app_role">;
+  workspace_name: string;
+  workspace_slug: string;
 };
 
 export type InvitationPreview = {
@@ -32,15 +35,13 @@ export async function getInvitationPreview(token: string) {
   const tokenHash = hashInviteToken(token);
 
   const { data, error } = await supabase
-    .from("invitations")
-    .select(
-      "email, role, expires_at, accepted_at, revoked_at, workspaces!inner(name, slug)",
-    )
-    .eq("token_hash", tokenHash)
+    .rpc("get_workspace_invitation_preview", {
+      p_token_hash: tokenHash,
+    })
     .maybeSingle()
     .returns<InvitationPreviewRow | null>();
 
-  if (error || !data?.workspaces) {
+  if (error || !data) {
     return null;
   }
 
@@ -51,7 +52,7 @@ export async function getInvitationPreview(token: string) {
     isExpired: new Date(data.expires_at).getTime() <= Date.now(),
     revokedAt: data.revoked_at,
     role: data.role,
-    workspaceName: data.workspaces.name,
-    workspaceSlug: data.workspaces.slug,
+    workspaceName: data.workspace_name,
+    workspaceSlug: data.workspace_slug,
   };
 }

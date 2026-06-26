@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -27,6 +29,7 @@ import type {
   ProjectListItem,
   WorkspaceMemberOption,
 } from "@/lib/workspace/data";
+import { cn } from "@/lib/utils";
 import {
   initialWorkspaceActionState,
   type WorkspaceActionState,
@@ -63,7 +66,20 @@ const statusOptions = [
   ["canceled", "Canceled"],
 ];
 
-const labelColors = ["#9be7c7", "#60a5fa", "#f59e0b", "#f472b6", "#a78bfa"];
+const labelColors = ["#ef6262", "#7f7af0", "#60a5fa", "#f59e0b", "#6ee7b7"];
+
+const composerContentClassName =
+  "max-w-[34rem] gap-0 border-border bg-popover/95 p-0 text-foreground shadow-2xl shadow-black/50";
+
+const composerHeaderClassName = "space-y-1 px-6 pb-0 pt-6";
+
+const composerFormClassName = "space-y-4 px-6 pb-6 pt-4";
+
+const composerFieldClassName =
+  "h-10 w-full rounded-md border border-border bg-background/70 px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
+
+const composerTextareaClassName =
+  "min-h-20 w-full rounded-md border border-border bg-background/70 px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
 
 export function ProjectDialog({
   members,
@@ -86,14 +102,16 @@ export function ProjectDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{project ? "Edit project" : "New project"}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className={composerContentClassName}>
+        <DialogHeader className={composerHeaderClassName}>
+          <DialogTitle className="text-xl font-semibold">
+            {project ? "Edit project" : "New project"}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
             Group related boards, owners, and target dates.
           </DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="space-y-4">
+        <form action={formAction} className={composerFormClassName}>
           <input name="workspaceSlug" type="hidden" value={workspaceSlug} />
           {project ? (
             <input name="projectId" type="hidden" value={project.id} />
@@ -107,35 +125,29 @@ export function ProjectDialog({
             textarea
           />
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">Status</span>
-              <select
-                className={selectClassName}
-                name="status"
-                defaultValue={project?.status ?? "planned"}
-              >
-                {statusOptions.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">Lead</span>
-              <select
-                className={selectClassName}
-                name="leadId"
-                defaultValue={project?.lead_id ?? ""}
-              >
-                <option value="">No lead</option>
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.fullName}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SelectField
+              label="Status"
+              name="status"
+              defaultValue={project?.status ?? "planned"}
+            >
+              {statusOptions.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </SelectField>
+            <SelectField
+              label="Lead"
+              name="leadId"
+              defaultValue={project?.lead_id ?? ""}
+            >
+              <option value="">No lead</option>
+              {members.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.fullName}
+                </option>
+              ))}
+            </SelectField>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field
@@ -151,8 +163,17 @@ export function ProjectDialog({
               defaultValue={project?.target_date ?? ""}
             />
           </div>
-          <DialogFooter>
-            <Button disabled={pending} type="submit">
+          <DialogFooter className="pt-1">
+            <DialogClose asChild>
+              <Button type="button" variant="ghost">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              className="bg-foreground text-background hover:bg-foreground/90"
+              disabled={pending}
+              type="submit"
+            >
               {pending ? "Saving" : project ? "Save project" : "Create project"}
             </Button>
           </DialogFooter>
@@ -183,41 +204,54 @@ export function BoardDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{board ? "Edit board" : "New board"}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className={composerContentClassName}>
+        <DialogHeader className={composerHeaderClassName}>
+          <DialogTitle className="text-xl font-semibold">
+            {board ? "Edit board" : "New board"}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
             Boards track task flow for one project.
           </DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="space-y-4">
+        <form action={formAction} className={composerFormClassName}>
           <input name="workspaceSlug" type="hidden" value={workspaceSlug} />
-          {board ? <input name="boardId" type="hidden" value={board.id} /> : null}
+          {board ? (
+            <input name="boardId" type="hidden" value={board.id} />
+          ) : null}
           <FieldError state={state} />
           <Field label="Name" name="name" defaultValue={board?.name} />
-          <label className="space-y-1 text-sm">
-            <span className="font-medium">Project</span>
-            <select
-              className={selectClassName}
-              name="projectId"
-              defaultValue={board?.project_id ?? projects[0]?.id ?? ""}
-              required
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            label="Project"
+            name="projectId"
+            defaultValue={String(board?.project_id ?? projects[0]?.id ?? "")}
+            required
+          >
+            {projects.length === 0 ? (
+              <option value="">No projects available</option>
+            ) : null}
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </SelectField>
           <Field
             label="Description"
             name="description"
             defaultValue={board?.description ?? ""}
             textarea
           />
-          <DialogFooter>
-            <Button disabled={pending || projects.length === 0} type="submit">
+          <DialogFooter className="pt-1">
+            <DialogClose asChild>
+              <Button type="button" variant="ghost">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              className="bg-foreground text-background hover:bg-foreground/90"
+              disabled={pending || projects.length === 0}
+              type="submit"
+            >
               {pending ? "Saving" : board ? "Save board" : "Create board"}
             </Button>
           </DialogFooter>
@@ -235,6 +269,7 @@ export function LabelDialog({
 }: LabelDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [selectedColor, setSelectedColor] = useState(labelColors[0]);
   const [state, formAction, pending] = useActionState(
     createLabel,
     initialWorkspaceActionState,
@@ -258,36 +293,46 @@ export function LabelDialog({
         <form action={formAction} className="space-y-4">
           <input name="workspaceSlug" type="hidden" value={workspaceSlug} />
           <input name="boardSlug" type="hidden" value={boardSlug} />
+          <input name="color" type="hidden" value={selectedColor} />
           <FieldError state={state} />
-          <Field label="Name" name="name" />
-          <div className="grid grid-cols-5 gap-2">
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Name</span>
+            <Input maxLength={40} name="name" required />
+          </label>
+          <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label="Label color">
             {labelColors.map((color) => (
-              <label
-                className="flex h-10 items-center justify-center rounded-md border border-border"
+              <button
+                aria-checked={selectedColor === color}
+                aria-label={`Use ${color} label color`}
+                className={cn(
+                  "flex h-11 items-center justify-center rounded-md border bg-background/40 outline-none transition hover:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  selectedColor === color
+                    ? "border-ring shadow-[0_0_0_1px_var(--ring)_inset]"
+                    : "border-border",
+                )}
                 key={color}
-                title={color}
+                onClick={() => setSelectedColor(color)}
+                role="radio"
+                type="button"
               >
-                <input
-                  className="sr-only"
-                  defaultChecked={color === labelColors[0]}
-                  name="color"
-                  type="radio"
-                  value={color}
-                />
                 <span
-                  className="size-5 rounded-full"
+                  className="size-5 rounded-full shadow-[0_0_0_1px_rgba(255,255,255,0.35)_inset]"
                   style={{ backgroundColor: color }}
                 />
-              </label>
+              </button>
             ))}
           </div>
           {labels.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {labels.map((label) => (
                 <span
-                  className="rounded-md border border-border px-2 py-1 text-xs"
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs"
                   key={label.id}
                 >
+                  <span
+                    className="size-2 rounded-full"
+                    style={{ backgroundColor: label.color }}
+                  />
                   {label.name}
                 </span>
               ))}
@@ -322,13 +367,49 @@ function Field({
       <span className="font-medium">{label}</span>
       {textarea ? (
         <textarea
-          className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className={composerTextareaClassName}
           defaultValue={defaultValue ?? ""}
           name={name}
         />
       ) : (
-        <Input defaultValue={defaultValue ?? ""} name={name} type={type} />
+        <Input
+          className={composerFieldClassName}
+          defaultValue={defaultValue ?? ""}
+          name={name}
+          type={type}
+        />
       )}
+    </label>
+  );
+}
+
+function SelectField({
+  children,
+  defaultValue,
+  label,
+  name,
+  required,
+}: {
+  children: React.ReactNode;
+  defaultValue: string;
+  label: string;
+  name: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="space-y-1.5 text-sm">
+      <span className="font-medium text-foreground">{label}</span>
+      <span className="relative block">
+        <select
+          className={selectClassName}
+          defaultValue={defaultValue}
+          name={name}
+          required={required}
+        >
+          {children}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      </span>
     </label>
   );
 }
@@ -357,4 +438,4 @@ function useCloseOnSuccess(state: WorkspaceActionState, onClose: () => void) {
 }
 
 export const selectClassName =
-  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "h-10 w-full appearance-none rounded-md border border-border bg-background/70 px-3 py-2 pr-9 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";

@@ -80,6 +80,28 @@ export type ProjectDetail = ProjectListItem & {
   members: WorkspaceMemberOption[];
 };
 
+export type WorkspaceOverviewTask = Pick<
+  Tables<"tasks">,
+  "due_date" | "id" | "priority" | "title"
+> & {
+  boardName: string;
+  boardSlug: string;
+  columnName: string;
+  projectName: string;
+};
+
+export type WorkspaceOverviewData = {
+  activeColumnCount: number;
+  boardCount: number;
+  dueSoonCount: number;
+  focusTasks: WorkspaceOverviewTask[];
+  inProgressCount: number;
+  memberCount: number;
+  openTaskCount: number;
+  projectCount: number;
+  workspace: WorkspaceRow;
+};
+
 type WorkspaceRow = Pick<Tables<"workspaces">, "id" | "name" | "slug">;
 
 type WorkspaceMemberRow = {
@@ -97,6 +119,11 @@ type TaskLabelRow = {
   label_id: number;
   task_id: number;
 };
+
+type OverviewTaskRow = Pick<
+  Tables<"tasks">,
+  "board_id" | "column_id" | "due_date" | "id" | "priority" | "project_id" | "sort_order" | "title"
+>;
 
 export const getWorkspaceBySlug = cache(
   async (workspaceSlug: string): Promise<WorkspaceRow> => {
@@ -254,6 +281,158 @@ export const getBoardsPageData = cache(async (workspaceSlug: string) => {
     workspace,
   };
 });
+
+export const getWorkspaceQuickTaskTarget = cache(async (workspaceSlug: string) => {
+  const workspace = await getWorkspaceBySlug(workspaceSlug);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("boards")
+    .select("slug")
+    .eq("workspace_id", workspace.id)
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  return data?.slug ?? null;
+});
+
+export const getWorkspaceOverviewData = cache(
+  async (workspaceSlug: string): Promise<WorkspaceOverviewData> => {
+    const workspace = await getWorkspaceBySlug(workspaceSlug);
+    const supabase = await createClient();
+    const today = new Date();
+    const dueSoon = new Date(today);
+    dueSoon.setDate(today.getDate() + 7);
+
+    const [
+      projectsResult,
+      boardsResult,
+      columnsResult,
+      tasksResult,
+      members,
+    ] = await Promise.all([
+      supabase
+        .from("projects")
+        .select("id, name")
+        .eq("workspace_id", workspace.id)
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("boards")
+        .select("id, name, slug, project_id")
+        .eq("workspace_id", workspace.id)
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("board_columns")
+        .select("id, name")
+        .eq("workspace_id", workspace.id),
+      supabase
+        .from("tasks")
+        .select("id, title, priority, due_date, sort_order, project_id, board_id, column_id")
+        .eq("workspace_id", workspace.id)
+        .order("sort_order", { ascending: true })
+        .order("id", { ascending: true })
+        .returns<OverviewTaskRow[]>(),
+      getWorkspaceMembers(workspace.id),
+    ]);
+
+    if (
+      projectsResult.error ||
+      boardsResult.error ||
+      columnsResult.error ||
+      tasksResult.error ||
+      !projectsResult.data ||
+      !boardsResult.data ||
+      !columnsResult.data ||
+      !tasksResult.data
+    ) {
+      notFound();
+    }
+
+    const projectMap = new Map(
+      projectsResult.data.map((project) => [project.id, project.name]),
+    );
+    const boardMap = new Map(
+      boardsResult.data.map((board) => [
+        board.id,
+        {
+          name: board.name,
+          slug: board.slug,
+        },
+      ]),
+    );
+    const columnMap = new Map(
+      columnsResult.data.map((column) => [column.id, column.name]),
+    );
+    const activeColumns = new Set(tasksResult.data.map((task) => task.column_id));
+    const inProgressCount = tasksResult.data.filter((task) => {
+      const columnName = columnMap.get(task.column_id)?.toLowerCase() ?? "";
+
+      return columnName.includes("progress") || columnName.includes("doing");
+    }).length;
+    const dueSoonCount = tasksResult.data.filter((task) => {
+      if (!task.due_date) {
+        return false;
+      }
+
+      const dueDate = new Date(`${task.due_date}T00:00:00`);
+
+      return dueDate >= startOfDay(today) && dueDate <= startOfDay(dueSoon);
+    }).length;
+    const priorityRank: Record<Enums<"task_priority">, number> = {
+      urgent: 0,
+      high: 1,
+      medium: 2,
+      low: 3,
+      none: 4,
+    };
+
+    const focusTasks = [...tasksResult.data]
+      .sort((first, second) => {
+        const rankDelta =
+          priorityRank[first.priority] - priorityRank[second.priority];
+
+        if (rankDelta !== 0) {
+          return rankDelta;
+        }
+
+        return Number(first.sort_order) - Number(second.sort_order);
+      })
+      .slice(0, 8)
+      .flatMap((task) => {
+        const board = boardMap.get(task.board_id);
+        const projectName = projectMap.get(task.project_id);
+        const columnName = columnMap.get(task.column_id);
+
+        if (!board || !projectName || !columnName) {
+          return [];
+        }
+
+        return {
+          boardName: board.name,
+          boardSlug: board.slug,
+          columnName,
+          due_date: task.due_date,
+          id: task.id,
+          priority: task.priority,
+          projectName,
+          title: task.title,
+        };
+      });
+
+    return {
+      activeColumnCount: activeColumns.size,
+      boardCount: boardsResult.data.length,
+      dueSoonCount,
+      focusTasks,
+      inProgressCount,
+      memberCount: members.length,
+      openTaskCount: tasksResult.data.length,
+      projectCount: projectsResult.data.length,
+      workspace,
+    };
+  },
+);
 
 export const getProjectDetailData = cache(
   async (workspaceSlug: string, projectSlug: string): Promise<ProjectDetail> => {
@@ -437,6 +616,10 @@ function groupTaskLabels(
   }
 
   return grouped;
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function getInitials(name: string) {

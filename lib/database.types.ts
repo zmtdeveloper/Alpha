@@ -675,6 +675,18 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_workspace_invitation_preview: {
+        Args: { p_token_hash: string }
+        Returns: {
+          accepted_at: string
+          email: string
+          expires_at: string
+          revoked_at: string
+          role: Database["public"]["Enums"]["app_role"]
+          workspace_name: string
+          workspace_slug: string
+        }[]
+      }
       move_task: {
         Args: {
           p_new_sort_order: number

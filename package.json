@@ -9,6 +9,9 @@
     "lint": "eslint",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
+    "supabase:migrate": "supabase migration up",
+    "supabase:backup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup-local-db.ps1",
+    "presupabase:reset": "node scripts/guard-supabase-reset.mjs",
     "supabase:reset": "supabase db reset",
     "supabase:types": "supabase gen types typescript --local > lib/database.types.ts"
   },

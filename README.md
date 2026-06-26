@@ -29,7 +29,6 @@ For Supabase local development, start Docker Desktop and then run:
 
 ```bash
 npm run supabase:start
-npm run supabase:reset
 ```
 
 `supabase start` prints the local project URL, anon key, and service role key. Copy those values into `.env.local` for the Supabase variables in `.env.example`.
@@ -59,7 +58,9 @@ Open `http://localhost:3000`.
 - `npm run lint`: runs ESLint with Next.js core web vitals and TypeScript rules.
 - `npm run supabase:start`: starts the local Supabase Docker stack.
 - `npm run supabase:stop`: stops the local Supabase Docker stack.
-- `npm run supabase:reset`: rebuilds the local database from migrations and seed files.
+- `npm run supabase:migrate`: applies new migrations to the local database without deleting local data.
+- `npm run supabase:backup`: saves a local SQL dump under `supabase/backups/`.
+- `npm run supabase:reset`: rebuilds the local database from migrations and seed files. This deletes local Auth users and app data, and is blocked unless explicitly confirmed.
 - `npm run supabase:types`: regenerates `lib/database.types.ts` from the local database.
 
 ## Database Workflow
@@ -69,8 +70,18 @@ Supabase configuration lives in `supabase/config.toml`. Migrations live in `supa
 After changing migrations:
 
 ```bash
-npm run supabase:reset
+npm run supabase:migrate
 npm run supabase:types
+```
+
+Do not use `npm run supabase:reset` for routine development. It drops and
+recreates the local database, including Auth users, workspaces, projects,
+boards, tasks, and invitations. Before any intentional reset, run:
+
+```powershell
+npm run supabase:backup
+$env:ALLOW_SUPABASE_RESET="I_UNDERSTAND_LOCAL_DATA_WILL_BE_DELETED"
+npm run supabase:reset
 ```
 
 Optional RLS smoke checks can be run after a reset:

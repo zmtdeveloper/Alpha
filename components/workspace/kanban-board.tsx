@@ -24,14 +24,19 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  CalendarDays,
-  GripVertical,
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  CircleDot,
+  Clock3,
+  MoreHorizontal,
   Plus,
   Tag,
   UserRound,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
+  useEffect,
   useMemo,
   useOptimistic,
   useState,
@@ -42,6 +47,7 @@ import type * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -51,8 +57,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DeleteButton } from "@/components/workspace/delete-button";
-import { LabelDialog, selectClassName } from "@/components/workspace/forms";
+import { LabelDialog } from "@/components/workspace/forms";
 import { createColumn, createTask, moveTask, updateTask } from "@/lib/workspace/actions";
+import { cn } from "@/lib/utils";
 import type {
   BoardColumn,
   BoardDetail,
@@ -78,11 +85,45 @@ const priorityLabels = {
 
 const priorityOptions = Object.entries(priorityLabels);
 
+const issueFieldClassName =
+  "h-10 w-full rounded-md border border-border bg-background/70 px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
+
+const issueSelectClassName =
+  "h-10 w-full appearance-none rounded-md border border-border bg-background/70 px-3 py-2 pr-9 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
+
+const priorityTone = {
+  high: {
+    chip: "text-amber-200",
+    dot: "bg-amber-400",
+  },
+  low: {
+    chip: "text-emerald-200",
+    dot: "bg-emerald-400",
+  },
+  medium: {
+    chip: "text-sky-200",
+    dot: "bg-sky-400",
+  },
+  none: {
+    chip: "text-muted-foreground",
+    dot: "bg-muted-foreground",
+  },
+  urgent: {
+    chip: "text-red-200",
+    dot: "bg-red-400",
+  },
+};
+
 export function KanbanBoard({ board, workspaceSlug }: KanbanBoardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [columns, setColumns] = useOptimistic(
     board.columns,
     (_currentColumns, nextColumns: BoardColumn[]) => nextColumns,
+  );
+  const firstColumnId = columns[0]?.id;
+  const [quickTaskOpen, setQuickTaskOpen] = useState(
+    searchParams.get("newTask") === "1" && Boolean(firstColumnId),
   );
   const [activeTask, setActiveTask] = useState<BoardTask | null>(null);
   const [selectedTask, setSelectedTask] = useState<BoardTask | null>(null);
@@ -108,6 +149,14 @@ export function KanbanBoard({ board, workspaceSlug }: KanbanBoardProps) {
     () => columns.reduce((total, column) => total + column.tasks.length, 0),
     [columns],
   );
+
+  useEffect(() => {
+    if (searchParams.get("newTask") === "1" && firstColumnId) {
+      router.replace(`/${workspaceSlug}/boards/${board.slug}`, {
+        scroll: false,
+      });
+    }
+  }, [board.slug, firstColumnId, router, searchParams, workspaceSlug]);
 
   function handleDragStart(event: DragStartEvent) {
     const taskId = taskIdFromDragId(event.active.id);
@@ -213,6 +262,19 @@ export function KanbanBoard({ board, workspaceSlug }: KanbanBoardProps) {
             }
             workspaceSlug={workspaceSlug}
           />
+          {firstColumnId ? (
+            <TaskDialog
+              board={board}
+              columnId={firstColumnId}
+              trigger={
+                <Button>
+                  <Plus />
+                  New task
+                </Button>
+              }
+              workspaceSlug={workspaceSlug}
+            />
+          ) : null}
         </div>
       </section>
 
@@ -257,6 +319,15 @@ export function KanbanBoard({ board, workspaceSlug }: KanbanBoardProps) {
           workspaceSlug={workspaceSlug}
         />
       ) : null}
+      {quickTaskOpen && firstColumnId ? (
+        <TaskDialog
+          board={board}
+          columnId={firstColumnId}
+          onOpenChange={setQuickTaskOpen}
+          open
+          workspaceSlug={workspaceSlug}
+        />
+      ) : null}
     </div>
   );
 }
@@ -275,14 +346,18 @@ function KanbanColumn({
   const { isOver, setNodeRef } = useDroppable({
     id: columnDragId(column.id),
   });
+  const tone = getColumnTone(column.name);
+  const ColumnIcon = tone.icon;
 
   return (
-    <div className="flex w-[min(82vw,320px)] shrink-0 flex-col rounded-lg border border-border bg-muted/30">
+    <div className="flex w-[min(82vw,340px)] shrink-0 flex-col rounded-md border border-border bg-muted/35">
       <div className="flex h-12 items-center justify-between border-b border-border px-3">
         <div className="flex min-w-0 items-center gap-2">
-          <GripVertical className="size-4 text-muted-foreground" />
-          <h2 className="truncate text-sm font-semibold">{column.name}</h2>
-          <span className="rounded-md bg-background px-2 py-1 text-xs text-muted-foreground">
+          <ColumnIcon className={cn("size-4", tone.color)} />
+          <h2 className="truncate text-sm font-semibold text-foreground">
+            {column.name}
+          </h2>
+          <span className="rounded-md bg-background/70 px-2 py-1 text-xs text-muted-foreground">
             {column.tasks.length}
           </span>
         </div>
@@ -313,7 +388,7 @@ function KanbanColumn({
         <div
           className={
             isOver
-              ? "flex-1 space-y-2 bg-primary/5 p-2"
+              ? "flex-1 space-y-2 bg-primary/8 p-2"
               : "flex-1 space-y-2 p-2"
           }
           ref={setNodeRef}
@@ -385,54 +460,71 @@ function TaskCardSurface({
   onOpen?: () => void;
   task: BoardTask;
 }) {
+  const tone = priorityTone[task.priority];
+
   return (
-    <div className="rounded-lg border border-border bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/60">
+    <div
+      className={cn(
+        "task-card cursor-grab rounded-md border border-border p-3 text-left shadow-sm shadow-black/10 transition-colors active:cursor-grabbing",
+        !onOpen && "task-card-active",
+      )}
+      onClick={onOpen}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (!onOpen) {
+          return;
+        }
+
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      {...dragAttributes}
+      {...dragListeners}
+    >
       <div className="flex items-start justify-between gap-3">
-        <button
-          className="line-clamp-2 min-w-0 flex-1 text-left text-sm font-medium leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={onOpen}
-          type="button"
-        >
+        <p className="line-clamp-2 min-w-0 flex-1 text-[15px] font-medium leading-5 text-foreground">
           {task.title}
-        </button>
-        <span className="rounded-md bg-secondary px-2 py-1 text-[11px] uppercase text-secondary-foreground">
+        </p>
+        <span
+          className={cn(
+            "task-chip inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px]",
+            tone.chip,
+          )}
+        >
+          <span className={cn("size-1.5 rounded-full", tone.dot)} />
           {priorityLabels[task.priority]}
         </span>
-        {dragListeners ? (
-          <button
-            aria-label={`Move ${task.title}`}
-            className="rounded p-1 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-            type="button"
-            {...dragAttributes}
-            {...dragListeners}
-          >
-            <GripVertical className="size-4" />
-          </button>
-        ) : null}
       </div>
-      {task.labels.length > 0 ? (
-        <div className="mt-3 flex flex-wrap gap-1">
-          {task.labels.map((label) => (
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
+          <MoreHorizontal className="size-3.5" />
+        </span>
+        <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
+          <Clock3 className="size-3.5" />
+          {task.due_date ?? "Open"}
+        </span>
+        {task.labels.map((label) => (
+          <span
+            className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2"
+            key={label.id}
+          >
             <span
-              className="rounded px-1.5 py-0.5 text-[11px] text-background"
-              key={label.id}
+              className="size-2 rounded-full"
               style={{ backgroundColor: label.color }}
-            >
+            />
+            <span className="max-w-28 truncate text-foreground/75">
               {label.name}
             </span>
-          ))}
-        </div>
-      ) : null}
-      <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <CalendarDays className="size-3" />
-          {task.due_date ?? "No due date"}
-        </span>
-        <span className="inline-flex -space-x-1">
+          </span>
+        ))}
+        <span className="ml-auto inline-flex -space-x-1">
           {task.assignees.length > 0 ? (
             task.assignees.slice(0, 3).map((assignee) => (
               <span
-                className="flex size-6 items-center justify-center rounded-md border border-card bg-secondary text-[10px] font-semibold text-secondary-foreground"
+                className="flex size-6 items-center justify-center rounded-full border border-card bg-secondary text-[10px] font-semibold text-secondary-foreground"
                 key={assignee.id}
                 title={assignee.fullName}
               >
@@ -440,7 +532,9 @@ function TaskCardSurface({
               </span>
             ))
           ) : (
-            <UserRound className="size-4" />
+            <span className="task-chip flex size-7 items-center justify-center rounded-full">
+              <UserRound className="size-3.5" />
+            </span>
           )}
         </span>
       </div>
@@ -492,67 +586,62 @@ function TaskDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{task ? "Task details" : "New task"}</DialogTitle>
-          <DialogDescription>
-            Keep the task scoped to this board and project.
+      <DialogContent className="max-w-[34rem] gap-0 border-border bg-popover/95 p-0 text-foreground shadow-2xl shadow-black/50">
+        <DialogHeader className="space-y-1 px-6 pb-0 pt-6">
+          <DialogTitle className="text-xl font-semibold">
+            {task ? "Task details" : "New task"}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Create or update a task on this board.
           </DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="space-y-4">
+        <form action={formAction} className="space-y-4 px-6 pb-6 pt-4">
           <input name="workspaceSlug" type="hidden" value={workspaceSlug} />
           <input name="boardSlug" type="hidden" value={board.slug} />
           {task ? <input name="taskId" type="hidden" value={task.id} /> : null}
           <FieldError state={state} />
-          <label className="space-y-1 text-sm">
-            <span className="font-medium">Title</span>
-            <Input name="title" defaultValue={task?.title ?? ""} required />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium">Description</span>
-            <textarea
-              className="min-h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              name="description"
-              defaultValue={task?.description ?? ""}
+          <label className="space-y-1.5 text-sm">
+            <span className="font-medium text-foreground">Title</span>
+            <Input
+              className={issueFieldClassName}
+              name="title"
+              defaultValue={task?.title ?? ""}
+              placeholder="Task title..."
+              required
             />
           </label>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">Column</span>
-              <select
-                className={selectClassName}
-                name="columnId"
-                defaultValue={task?.column_id ?? columnId}
-              >
-                {board.columns.map((column) => (
-                  <option key={column.id} value={column.id}>
-                    {column.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">Priority</span>
-              <select
-                className={selectClassName}
-                name="priority"
-                defaultValue={task?.priority ?? "none"}
-              >
-                {priorityOptions.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">Due date</span>
-              <Input name="dueDate" type="date" defaultValue={task?.due_date ?? ""} />
-            </label>
+          <label className="space-y-1.5 text-sm">
+            <span className="font-medium text-foreground">Description</span>
+            <textarea
+              className="min-h-16 w-full rounded-md border border-border bg-background/70 px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+              name="description"
+              defaultValue={task?.description ?? ""}
+              placeholder="Add a description..."
+            />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <IssueSelect label="Status" name="columnId" defaultValue={String(task?.column_id ?? columnId ?? "")}>
+              {board.columns.map((column) => (
+                <option key={column.id} value={column.id}>
+                  {column.name}
+                </option>
+              ))}
+            </IssueSelect>
+            <IssueSelect
+              label="Priority"
+              name="priority"
+              defaultValue={task?.priority ?? "none"}
+            >
+              {priorityOptions.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label === "None" ? "No priority" : label}
+                </option>
+              ))}
+            </IssueSelect>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <MultiSelect
-              label="Assignees"
+            <AssigneeSelect
+              label="Assignee"
               name="assigneeIds"
               options={board.members.map((member) => ({
                 label: member.fullName,
@@ -560,17 +649,21 @@ function TaskDialog({
               }))}
               values={task?.assignees.map((member) => member.id) ?? []}
             />
-            <MultiSelect
-              label="Labels"
-              name="labelIds"
-              options={board.labels.map((label) => ({
-                label: label.name,
-                value: String(label.id),
-              }))}
-              values={task?.labels.map((label) => String(label.id)) ?? []}
-            />
+            <label className="space-y-1.5 text-sm">
+              <span className="font-medium text-foreground">Due date</span>
+              <Input
+                className={issueFieldClassName}
+                name="dueDate"
+                type="date"
+                defaultValue={task?.due_date ?? ""}
+              />
+            </label>
           </div>
-          <DialogFooter>
+          <LabelPills
+            labels={board.labels}
+            values={task?.labels.map((label) => String(label.id)) ?? []}
+          />
+          <DialogFooter className="pt-1">
             {task ? (
               <DeleteButton
                 boardSlug={board.slug}
@@ -580,13 +673,50 @@ function TaskDialog({
                 workspaceSlug={workspaceSlug}
               />
             ) : null}
-            <Button disabled={pending} type="submit">
+            <DialogClose asChild>
+              <Button type="button" variant="ghost">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              className="bg-foreground text-background hover:bg-foreground/90"
+              disabled={pending}
+              type="submit"
+            >
               {pending ? "Saving" : task ? "Save task" : "Create task"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function IssueSelect({
+  children,
+  defaultValue,
+  label,
+  name,
+}: {
+  children: React.ReactNode;
+  defaultValue: string;
+  label: string;
+  name: string;
+}) {
+  return (
+    <label className="space-y-1.5 text-sm">
+      <span className="font-medium text-foreground">{label}</span>
+      <span className="relative block">
+        <select
+          className={issueSelectClassName}
+          defaultValue={defaultValue}
+          name={name}
+        >
+          {children}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      </span>
+    </label>
   );
 }
 
@@ -645,7 +775,7 @@ function ColumnDialog({
   );
 }
 
-function MultiSelect({
+function AssigneeSelect({
   label,
   name,
   options,
@@ -657,21 +787,68 @@ function MultiSelect({
   values: string[];
 }) {
   return (
-    <label className="space-y-1 text-sm">
-      <span className="font-medium">{label}</span>
-      <select
-        className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        defaultValue={values}
-        multiple
-        name={name}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+    <label className="space-y-1.5 text-sm">
+      <span className="font-medium text-foreground">{label}</span>
+      <span className="relative block">
+        <select
+          className={issueSelectClassName}
+          defaultValue={values[0] ?? ""}
+          name={name}
+        >
+          <option value="">Unassigned</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      </span>
     </label>
+  );
+}
+
+function LabelPills({
+  labels,
+  values,
+}: {
+  labels: Array<{ color: string; id: number; name: string }>;
+  values: string[];
+}) {
+  return (
+    <div className="space-y-2 text-sm">
+      <span className="font-medium text-foreground">Labels</span>
+      {labels.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {labels.map((label) => {
+            const value = String(label.id);
+
+            return (
+              <label key={label.id} className="group cursor-pointer">
+                <input
+                  className="peer sr-only"
+                  defaultChecked={values.includes(value)}
+                  name="labelIds"
+                  type="checkbox"
+                  value={value}
+                />
+                <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-transparent bg-white/[0.035] px-2.5 text-xs text-muted-foreground transition peer-checked:border-current peer-checked:bg-white/[0.07] peer-checked:text-foreground group-hover:bg-white/[0.06]">
+                  <span
+                    className="size-1.5 rounded-full"
+                    style={{ backgroundColor: label.color }}
+                  />
+                  {label.name}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Create labels from the board toolbar first.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -692,11 +869,41 @@ function FieldError({ state }: { state: WorkspaceActionState }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-md border border-border bg-card/70 p-4">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold">{value}</p>
     </div>
   );
+}
+
+function getColumnTone(name: string) {
+  const normalized = name.toLowerCase();
+
+  if (normalized.includes("review")) {
+    return {
+      color: "text-emerald-400",
+      icon: CheckCircle2,
+    };
+  }
+
+  if (normalized.includes("progress") || normalized.includes("doing")) {
+    return {
+      color: "text-amber-300",
+      icon: CircleDot,
+    };
+  }
+
+  if (normalized.includes("done") || normalized.includes("complete")) {
+    return {
+      color: "text-primary",
+      icon: CheckCircle2,
+    };
+  }
+
+  return {
+    color: "text-foreground",
+    icon: Circle,
+  };
 }
 
 function findTask(columns: BoardColumn[], taskId: number) {

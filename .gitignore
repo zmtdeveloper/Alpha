@@ -36,6 +36,7 @@ yarn-error.log*
 .env*
 !.env.example
 supabase.md
+supabase/backups/
 
 # vercel
 .vercel

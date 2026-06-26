@@ -7,19 +7,19 @@ import {
 
 const columns = [
   {
-    title: "Triage",
+    title: "Todo",
     count: "04",
-    tasks: ["Invite onboarding", "Billing states", "Workspace roles"],
+    tasks: ["Invite onboarding", "Subscription states", "Workspace roles"],
   },
   {
-    title: "Building",
+    title: "In Progress",
     count: "07",
-    tasks: ["Board ordering", "Task detail panel", "Member settings"],
+    tasks: ["Drag ordering", "Task detail panel", "Member settings"],
   },
   {
-    title: "Ready",
+    title: "In Review",
     count: "03",
-    tasks: ["RLS review", "Checkout redirect", "Welcome email"],
+    tasks: ["RLS review", "Checkout redirect", "Invite email"],
   },
 ];
 
@@ -31,94 +31,121 @@ export default async function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0b0d10] px-4 py-6 text-zinc-100 sm:px-6 lg:px-8 2xl:px-10">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[1680px] flex-col">
-        <header className="flex items-center justify-between border-b border-white/10 pb-5">
-          <p className="font-mono text-sm uppercase tracking-[0.28em] text-[#9be7c7]">
-            Alpha
-          </p>
-          <Link
-            href="/login"
-            className="rounded-md border border-white/15 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-[#9be7c7]/70 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#9be7c7] focus:ring-offset-2 focus:ring-offset-[#0b0d10]"
-          >
-            Sign in
-          </Link>
-        </header>
-
-        <section className="grid flex-1 items-center gap-8 py-10 xl:grid-cols-[minmax(360px,0.74fr)_minmax(680px,1.26fr)] xl:py-12 2xl:grid-cols-[minmax(440px,0.7fr)_minmax(860px,1.3fr)]">
-          <div className="max-w-2xl">
-            <p className="mb-5 font-mono text-xs uppercase tracking-[0.22em] text-zinc-500">
-              Workspace planning system
-            </p>
-            <h1 className="text-4xl font-semibold leading-[0.98] text-white sm:text-5xl lg:text-6xl 2xl:text-7xl">
-              Project work, shaped for fast-moving teams.
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-400">
-              Alpha is a focused project management app for shared workspaces,
-              kanban boards, task ownership, team access, and subscription-backed
-              collaboration.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/signup"
-                className="inline-flex h-11 items-center justify-center rounded-md bg-[#9be7c7] px-5 text-sm font-semibold text-[#07110d] transition hover:bg-[#b8f3da] focus:outline-none focus:ring-2 focus:ring-[#9be7c7] focus:ring-offset-2 focus:ring-offset-[#0b0d10]"
-              >
-                Create workspace
-              </Link>
-              <Link
-                href="/alpha"
-                className="inline-flex h-11 items-center justify-center rounded-md border border-white/15 px-5 text-sm font-semibold text-zinc-200 transition hover:border-white/35 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#9be7c7] focus:ring-offset-2 focus:ring-offset-[#0b0d10]"
-              >
-                Open workspace
-              </Link>
+    <main className="min-h-screen overflow-hidden bg-[#1f1f22] text-zinc-100">
+      <div className="relative min-h-screen">
+        <div className="absolute inset-0 grid grid-cols-[280px_1fr] opacity-80">
+          <aside className="hidden border-r border-white/10 bg-[#252529] p-5 md:block">
+            <div className="mb-10 flex items-center gap-3">
+              <span className="flex size-7 items-center justify-center rounded-md border border-white/10 bg-[#202024] text-xs text-[#7f7af0]">
+                A
+              </span>
+              <span className="text-sm font-medium">Alpha</span>
             </div>
-          </div>
-
-          <div className="rounded-lg border border-white/10 bg-[#11151a] p-3 shadow-2xl shadow-black/30 sm:p-4 2xl:p-5">
-            <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
-              <div>
-                <p className="text-sm font-medium text-white">Product Board</p>
-                <p className="text-xs text-zinc-500">Workspace / Alpha</p>
-              </div>
-              <div className="rounded-md bg-[#17231f] px-3 py-1 font-mono text-xs text-[#9be7c7]">
-                MVP
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3 2xl:gap-4">
-              {columns.map((column) => (
-                <section
-                  key={column.title}
-                  className="min-h-72 rounded-md border border-white/10 bg-[#0d1014] p-3 2xl:min-h-96 2xl:p-4"
+            {["Search", "Inbox", "My issues", "Projects", "Boards"].map(
+              (item, index) => (
+                <div
+                  className={
+                    index === 4
+                      ? "mb-2 rounded-md bg-white/8 px-3 py-2 text-sm text-white"
+                      : "mb-2 px-3 py-2 text-sm text-zinc-500"
+                  }
+                  key={item}
                 >
-                  <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-zinc-200">
-                      {column.title}
-                    </h2>
-                    <span className="font-mono text-xs text-zinc-500">
-                      {column.count}
-                    </span>
+                  {item}
+                </div>
+              ),
+            )}
+          </aside>
+
+          <section className="min-w-0 bg-[radial-gradient(circle_at_50%_0%,rgba(111,106,232,0.18),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent)]">
+            <div className="flex h-16 items-center justify-between border-b border-white/10 px-6 md:px-10">
+              <div>
+                <span className="text-sm text-zinc-500">Board</span>
+                <span className="ml-2 text-xs text-zinc-600">19</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="hidden h-8 rounded-md border border-white/10 px-3 py-1.5 text-sm text-zinc-500 sm:inline-flex">
+                  + Filter
+                </span>
+                <span className="flex size-9 items-center justify-center rounded-md bg-[#6f6ae8] text-xl text-white">
+                  +
+                </span>
+              </div>
+            </div>
+
+            <div className="grid gap-4 p-6 md:grid-cols-3 md:p-10">
+              {columns.map((column) => (
+                <div className="min-w-0" key={column.title}>
+                  <div className="mb-3 flex h-9 items-center justify-between border-b border-white/10 text-sm">
+                    <span>{column.title}</span>
+                    <span className="text-zinc-500">{column.count}</span>
                   </div>
                   <div className="space-y-3">
-                    {column.tasks.map((task) => (
+                    {column.tasks.map((task, index) => (
                       <article
+                        className="rounded-md border border-white/8 bg-[#2b2b30]/90 p-4 shadow-2xl shadow-black/10"
                         key={task}
-                        className="rounded-md border border-white/10 bg-[#171c22] p-3"
                       >
                         <p className="text-sm font-medium text-zinc-100">
                           {task}
                         </p>
-                        <div className="mt-4 flex items-center justify-between text-xs text-zinc-500">
-                          <span>Owner</span>
-                          <span className="rounded bg-white/5 px-2 py-1 font-mono">
-                            P1
+                        <div className="mt-5 flex items-center gap-2 text-xs text-zinc-500">
+                          <span>...</span>
+                          <span className="rounded border border-white/10 px-2 py-1">
+                            P{index + 1}
+                          </span>
+                          <span className="rounded border border-white/10 px-2 py-1">
+                            Alpha
                           </span>
                         </div>
                       </article>
                     ))}
                   </div>
-                </section>
+                </div>
               ))}
+            </div>
+          </section>
+        </div>
+
+        <div className="absolute inset-0 bg-gradient-to-r from-[#1f1f22] via-[#1f1f22]/88 to-[#1f1f22]/20" />
+
+        <header className="relative z-10 flex items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
+          <p className="font-mono text-sm uppercase tracking-[0.28em] text-zinc-300">
+            Alpha
+          </p>
+          <Link
+            href="/login"
+            className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-white/35 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#7f7af0] focus:ring-offset-2 focus:ring-offset-[#1f1f22]"
+          >
+            Sign in
+          </Link>
+        </header>
+
+        <section className="relative z-10 flex min-h-[calc(100vh-5rem)] items-center px-5 pb-24 pt-10 sm:px-8 lg:px-10">
+          <div className="max-w-3xl">
+            <p className="mb-5 font-mono text-xs uppercase tracking-[0.22em] text-zinc-500">
+              Project workspace
+            </p>
+            <h1 className="text-5xl font-semibold leading-[0.94] text-white sm:text-6xl lg:text-7xl">
+              Alpha
+            </h1>
+            <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-300">
+              A focused workspace for projects, boards, tasks, and team access.
+              Dense where work needs detail, quiet where teams need speed.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/signup"
+                className="inline-flex h-11 items-center justify-center rounded-md bg-[#6f6ae8] px-5 text-sm font-semibold text-white transition hover:bg-[#7f7af0] focus:outline-none focus:ring-2 focus:ring-[#7f7af0] focus:ring-offset-2 focus:ring-offset-[#1f1f22]"
+              >
+                Create workspace
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex h-11 items-center justify-center rounded-md border border-white/15 bg-white/5 px-5 text-sm font-semibold text-zinc-200 transition hover:border-white/35 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#7f7af0] focus:ring-offset-2 focus:ring-offset-[#1f1f22]"
+              >
+                Open workspace
+              </Link>
             </div>
           </div>
         </section>

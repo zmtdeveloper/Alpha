@@ -1,4 +1,12 @@
-import { Pencil, Plus } from "lucide-react";
+import {
+  ArrowRight,
+  Clock3,
+  Columns3,
+  Layers3,
+  Pencil,
+  Plus,
+  PanelsTopLeft,
+} from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/empty-state";
@@ -14,10 +22,15 @@ export default async function BoardsPage({
 }) {
   const { workspaceSlug } = await params;
   const { boards, projects } = await getBoardsPageData(workspaceSlug);
+  const columnTotal = boards.reduce(
+    (total, board) => total + board.columnCount,
+    0,
+  );
+  const taskTotal = boards.reduce((total, board) => total + board.taskCount, 0);
 
   return (
     <div className="space-y-5">
-      <section className="flex flex-col gap-3 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
+      <section className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
             Boards
@@ -25,6 +38,20 @@ export default async function BoardsPage({
           <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
             Workspace boards
           </h1>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
+              <PanelsTopLeft className="size-3.5 text-primary" />
+              {boards.length} boards
+            </span>
+            <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
+              <Columns3 className="size-3.5 text-sky-200" />
+              {columnTotal} columns
+            </span>
+            <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
+              <Clock3 className="size-3.5 text-amber-200" />
+              {taskTotal} tasks
+            </span>
+          </div>
         </div>
         <BoardDialog
           projects={projects}
@@ -51,26 +78,36 @@ export default async function BoardsPage({
           {boards.map((board) => (
             <article
               key={board.id}
-              className="rounded-lg border border-border bg-card p-4"
+              className="task-card group rounded-md border border-border p-4 shadow-sm shadow-black/10 transition-colors"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <Link
-                    className="font-semibold outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-                    href={`/${workspaceSlug}/boards/${board.slug}`}
-                  >
-                    {board.name}
-                  </Link>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    {board.description || board.projectName}
-                  </p>
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="task-chip flex size-9 shrink-0 items-center justify-center rounded-md">
+                    <PanelsTopLeft className="size-4 text-primary" />
+                  </span>
+                  <div className="min-w-0">
+                    <Link
+                      className="block truncate text-base font-semibold outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                      href={`/${workspaceSlug}/boards/${board.slug}`}
+                    >
+                      {board.name}
+                    </Link>
+                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                      {board.description || `${board.projectName} workflow`}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex shrink-0 items-center gap-1">
                   <BoardDialog
                     board={board}
                     projects={projects}
                     trigger={
-                      <Button aria-label="Edit board" size="icon" variant="ghost">
+                      <Button
+                        aria-label="Edit board"
+                        className="size-8"
+                        size="icon"
+                        variant="ghost"
+                      >
                         <Pencil />
                       </Button>
                     }
@@ -84,10 +121,31 @@ export default async function BoardsPage({
                   />
                 </div>
               </div>
-              <div className="mt-5 flex gap-5 text-sm text-muted-foreground">
-                <span>{board.taskCount} tasks</span>
-                <span>{board.columnCount} columns</span>
-                <span>{board.projectName}</span>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
+                  <Layers3 className="size-3.5 text-sky-200" />
+                  {board.projectName}
+                </span>
+                <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
+                  <Clock3 className="size-3.5 text-amber-200" />
+                  {board.taskCount} tasks
+                </span>
+                <span className="task-chip inline-flex h-7 items-center gap-1 rounded-md px-2">
+                  <Columns3 className="size-3.5 text-emerald-200" />
+                  {board.columnCount} columns
+                </span>
+              </div>
+              <div className="mt-5 flex items-center justify-between border-t border-border/70 pt-3 text-sm">
+                <span className="text-muted-foreground">
+                  Board execution flow
+                </span>
+                <Link
+                  className="inline-flex items-center gap-1 font-medium text-foreground outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                  href={`/${workspaceSlug}/boards/${board.slug}`}
+                >
+                  Open board
+                  <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+                </Link>
               </div>
             </article>
           ))}

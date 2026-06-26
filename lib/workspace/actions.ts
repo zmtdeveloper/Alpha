@@ -611,10 +611,10 @@ export async function createLabel(
   _state: WorkspaceActionState,
   formData: FormData,
 ): Promise<WorkspaceActionState> {
-  const workspaceSlug = formString(formData, "workspaceSlug");
-  const boardSlug = formString(formData, "boardSlug");
-  const name = formString(formData, "name");
-  const color = formString(formData, "color");
+  const workspaceSlug = formString(formData, "workspaceSlug").trim();
+  const boardSlug = formString(formData, "boardSlug").trim();
+  const name = formString(formData, "name").trim();
+  const color = formString(formData, "color").trim();
   const parsedWorkspace = workspaceSlugSchema.safeParse(workspaceSlug);
 
   if (
@@ -639,6 +639,10 @@ export async function createLabel(
   });
 
   if (error) {
+    if (error.code === "23505") {
+      return actionMessage("A label with this name already exists.");
+    }
+
     return actionMessage("Label could not be created.");
   }
 

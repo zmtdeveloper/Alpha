@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(29);
+select plan(32);
 
 insert into auth.users (id, email)
 values
@@ -273,6 +273,40 @@ select is(
   ),
   'owner',
   'onboarding function creates active owner membership'
+);
+
+reset role;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000006';
+set local "request.jwt.claim.email" = 'new-member@example.com';
+
+select is(
+  (select count(*)::int from public.workspaces),
+  0,
+  'invited user is not a workspace member before acceptance'
+);
+
+select is(
+  (
+    select workspace_slug
+    from public.get_workspace_invitation_preview(repeat('a', 64))
+  ),
+  'workspace-a',
+  'invited user can preview a valid invitation without workspace membership'
+);
+
+reset role;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000004';
+set local "request.jwt.claim.email" = 'outsider@example.com';
+
+select is(
+  (
+    select count(*)::int
+    from public.get_workspace_invitation_preview(repeat('a', 64))
+  ),
+  0,
+  'wrong email cannot preview invitation details'
 );
 
 reset role;
