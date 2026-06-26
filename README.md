@@ -40,8 +40,9 @@ $env:SUPABASE_TELEMETRY_DISABLED='1'
 npm run supabase:start
 ```
 
-Stripe and AI provider configuration are added in later milestones. Resend is
-used now for welcome and invitation emails.
+Stripe configuration is added in later milestones. Resend is used now for
+welcome and invitation emails. Optional AI assistant values can be set in
+`.env.local` when you are ready to use the workspace chatbot.
 
 Start the development server:
 
@@ -106,6 +107,18 @@ For email delivery, set:
 
 If either email value is missing, welcome and invitation emails are skipped and
 the core onboarding/invitation flow still completes.
+
+For the optional workspace AI assistant, set:
+
+- `AI_FEATURES_ENABLED`: set to `true` to enable the assistant or `false` to
+  disable it.
+- `NVIDIA_API_KEY`: server-only NVIDIA API key.
+- `NVIDIA_API_BASE_URL`: NVIDIA OpenAI-compatible base URL, for example
+  `https://integrate.api.nvidia.com/v1`.
+- `NVIDIA_AI_MODEL`: the NVIDIA model name to use.
+
+If the AI values are missing, the app continues to work normally and the Ask AI
+button stays disabled or hidden where it appears.
 
 ## Roadmap
 

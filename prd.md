@@ -11,7 +11,7 @@ Tech
 -Supabase (locally first running on docker)
 -Stripe for payments (app subscription for lite and pro)
 -resend for welcome emails
--AISDK for AI features
+-Server-side AI assistant for optional workspace help
 
 Look and feel
 -use shadcn ui for components

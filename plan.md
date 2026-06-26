@@ -34,7 +34,7 @@ The MVP should feel like a dense, work-focused application, not a marketing-firs
 - For Next.js API, routing, caching, server action, or file-structure changes, read the relevant guide in `node_modules/next/dist/docs/` before editing.
 - Run the milestone verification checks before considering the milestone complete.
 - Prefer updating this roadmap over inventing undocumented architecture during implementation.
-- Use available MCP tools for integration planning before implementing Stripe, Supabase, Resend, AI SDK, or other third-party workflows. If no MCP tool is configured, document that and proceed from official docs or local package docs.
+- Use available MCP tools for integration planning before implementing Stripe, Supabase, Resend, AI, or other third-party workflows. If no MCP tool is configured, document that and proceed from official docs or local package docs.
 
 ## Technical Defaults
 
@@ -47,7 +47,7 @@ The MVP should feel like a dense, work-focused application, not a marketing-firs
 - Database/Auth: Supabase local-first with Docker, migrations, generated TypeScript database types, and RLS.
 - Payments: Stripe Billing with Checkout Sessions and Customer Portal for workspace-level Lite and Pro subscriptions.
 - Email: Resend from server-side flows only.
-- AI: AI SDK features are post-MVP, server-authorized, optional, logged, and gated by subscription plan.
+- AI: optional server-side workspace assistant features are post-MVP, server-authorized, logged, and gated by configuration plus subscription plan.
 - Testing: start with `npm run lint` and `npm run build`; add Vitest, Playwright, SQL/RLS tests, and webhook tests in the hardening milestone or earlier if risk requires.
 - Package manager: npm, matching `package-lock.json`.
 
@@ -87,7 +87,7 @@ Server-only variables:
 
 Deferred server-only AI variables:
 
-- AI provider keys required by Milestone 9.
+- AI provider keys required by Milestone 9, if the assistant is enabled.
 - Do not expose AI provider keys with `NEXT_PUBLIC_` prefixes.
 
 ## Planned Data Model
@@ -134,7 +134,7 @@ RLS and database rules:
 - Stripe SDK calls happen only in server actions or route handlers.
 - Stripe webhook verification uses the raw request body and `STRIPE_WEBHOOK_SECRET`.
 - Resend calls happen only in server actions, route handlers, or background-safe server helpers.
-- AI SDK calls happen only in server-authorized actions after workspace membership and plan checks.
+- AI calls happen only in server-authorized actions after workspace membership, configuration, and plan checks.
 - Client components may call typed server actions or route handlers but must not hold provider secrets or make direct privileged integration calls.
 
 ## Cross-Cutting Rules
@@ -377,28 +377,27 @@ Verification checks:
 
 ## Milestone 9: AI Features
 
-Objective: add optional AI productivity helpers after core app and billing flows are stable.
+Objective: add an optional workspace-level AI assistant after core app and billing flows are stable.
 
 Implementation tasks:
 
-- Choose AI provider env vars and document them as server-only.
-- Add AI SDK server-side actions for task drafting.
-- Add task summarization from authorized task data.
-- Add board cleanup suggestions from authorized board data.
-- Gate AI actions by workspace membership and subscription plan.
-- Log AI action requests and failures without storing provider secrets or unnecessary sensitive content.
-- Provide non-blocking UI states so AI failure does not break normal task workflows.
+- Add a workspace overview Ask AI button and a right-side chat drawer.
+- Use a server-only NVIDIA-compatible AI helper with environment-driven configuration.
+- Gate AI access by authenticated workspace membership, config availability, and Pro plan status.
+- Keep AI context at the workspace summary level for this milestone; do not expose board or task details from the drawer.
+- Log AI requests and failures without storing provider secrets or unnecessary sensitive content.
+- Provide non-blocking UI states so AI failure does not break normal workflows.
 
 Acceptance criteria:
 
 - AI features are optional and can be disabled by missing configuration or plan gates.
 - AI actions cannot access data from other workspaces.
-- AI responses are clearly suggestions and require user confirmation before mutating important data.
+- AI responses are clearly suggestions and do not mutate workspace data.
 
 Verification checks:
 
 - Run `npm run lint` and `npm run build`.
-- Test authorized, unauthorized, wrong-plan, and missing-provider-key scenarios.
+- Test authorized, unauthorized, wrong-plan, missing-provider-key, and disabled-feature scenarios.
 - Review prompts and logs for accidental sensitive data exposure.
 
 ## Milestone 10: Testing And Hardening

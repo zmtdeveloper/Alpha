@@ -1,0 +1,466 @@
+"use client";
+
+import {
+  Bot,
+  CheckCircle2,
+  LoaderCircle,
+  SendHorizontal,
+  Sparkles,
+} from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+} from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import type {
+  AiActionResult,
+  AiChatMessage,
+  WorkspaceAiAvailability,
+  WorkspaceAiSummary,
+} from "@/lib/ai/types";
+
+type AskAiDrawerProps = {
+  availability: WorkspaceAiAvailability;
+  summary: WorkspaceAiSummary;
+  workspaceSlug: string;
+};
+
+type WorkspaceAiReply = {
+  finishReason: string | null;
+  reply: string;
+};
+
+const quickPrompts = [
+  "What's urgent?",
+  "What is due soon?",
+  "What needs focus?",
+  "Write a status update",
+];
+
+export function AskAiDrawer({
+  availability,
+  summary,
+  workspaceSlug,
+}: AskAiDrawerProps) {
+  if (!availability.enabled) {
+    return (
+      <div className="flex">
+        <Button
+          className="px-2 sm:px-3"
+          disabled
+          size="sm"
+          title={availability.message}
+          type="button"
+          variant="outline"
+        >
+          <Sparkles />
+          <span className="hidden sm:inline">Ask AI</span>
+        </Button>
+      </div>
+    );
+  }
+
+  return <EnabledAskAiDrawer summary={summary} workspaceSlug={workspaceSlug} />;
+}
+
+function EnabledAskAiDrawer({
+  summary,
+  workspaceSlug,
+}: Pick<AskAiDrawerProps, "summary" | "workspaceSlug">) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState<AiChatMessage[]>([]);
+  const [prompt, setPrompt] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const firstName = useMemo(
+    () => getFirstName(summary.userName),
+    [summary.userName],
+  );
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const node = scrollRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    node.scrollTo({ behavior: "smooth", top: node.scrollHeight });
+  }, [messages, open, pending]);
+
+  function submitPrompt(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const trimmedPrompt = prompt.trim();
+
+    if (!trimmedPrompt || pending) {
+      return;
+    }
+
+    const conversation = messages.slice(-8);
+    const userMessage: AiChatMessage = {
+      content: trimmedPrompt,
+      role: "user",
+    };
+
+    setMessages((current) => [...current, userMessage]);
+    setPrompt("");
+    setError(null);
+
+    startTransition(async () => {
+      const result = await requestWorkspaceAi({
+        conversation,
+        prompt: trimmedPrompt,
+        summary,
+        workspaceSlug,
+      });
+
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+
+      setMessages((current) => [
+        ...current,
+        {
+          content: result.data.reply,
+          role: "assistant",
+        },
+      ]);
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="px-2 sm:px-3" size="sm" type="button">
+          <Sparkles />
+          <span className="hidden sm:inline">Ask AI</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="left-auto right-0 top-0 h-svh w-[min(96vw,42rem)] max-w-none translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 border-l-border bg-popover p-0 [&>button]:right-5 [&>button]:top-5">
+        <div className="flex h-full min-h-svh flex-col bg-popover text-popover-foreground">
+          <DialogHeader className="border-b border-border px-6 py-5 pr-14">
+            <div className="flex items-center gap-2">
+              <span className="task-chip flex size-9 items-center justify-center rounded-md text-primary">
+                <Bot className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-base font-semibold">
+                  Ask about {summary.workspaceName}
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Chat across projects in this workspace.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto bg-background/35 px-6",
+              messages.length > 0
+                ? "space-y-4 py-5"
+                : "flex items-center justify-center py-8",
+            )}
+            ref={scrollRef}
+          >
+            {messages.length === 0 ? (
+              <AiEmptyState
+                firstName={firstName}
+                onPromptSelect={setPrompt}
+                summary={summary}
+              />
+            ) : (
+              messages.map((message, index) => (
+                <ChatBubble
+                  key={`${message.role}-${index}-${message.content.slice(0, 16)}`}
+                  message={message}
+                />
+              ))
+            )}
+            {pending ? (
+              <ChatBubble
+                message={{
+                  content: "Thinking...",
+                  role: "assistant",
+                }}
+                loading
+              />
+            ) : null}
+          </div>
+
+          {error ? (
+            <div className="mx-6 mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
+
+          <form
+            className="border-t border-border bg-popover/95 px-5 py-4"
+            onSubmit={submitPrompt}
+          >
+            <div className="flex items-end gap-2">
+              <label className="min-w-0 flex-1 text-sm">
+                <span className="sr-only">Ask a question</span>
+                <textarea
+                  className={cn(
+                    "max-h-36 min-h-12 w-full resize-none rounded-md border border-border bg-background/70 px-4 py-3 text-sm leading-6 text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40",
+                    pending && "opacity-80",
+                  )}
+                  disabled={pending}
+                  onChange={(event) => setPrompt(event.target.value)}
+                  placeholder={`Ask about ${summary.workspaceName}...`}
+                  value={prompt}
+                />
+              </label>
+              <Button
+                aria-label="Send prompt"
+                className="size-12 rounded-md"
+                disabled={pending || prompt.trim().length === 0}
+                size="icon"
+                type="submit"
+              >
+                {pending ? (
+                  <LoaderCircle className="animate-spin" />
+                ) : (
+                  <SendHorizontal />
+                )}
+              </Button>
+            </div>
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CheckCircle2 className="size-3.5" />
+              AI suggestions only. Nothing changes automatically.
+            </p>
+          </form>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AiEmptyState({
+  firstName,
+  onPromptSelect,
+  summary,
+}: {
+  firstName: string;
+  onPromptSelect: (prompt: string) => void;
+  summary: WorkspaceAiSummary;
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-xl flex-col items-center text-center">
+      <span className="task-chip mb-5 flex size-14 items-center justify-center rounded-md text-primary">
+        <Bot className="size-6" />
+      </span>
+      <h2 className="text-xl font-semibold text-foreground">
+        Ask about your workspace
+      </h2>
+      <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+        Hi {firstName}, chat across {summary.workspaceName} using the overview
+        summary from this workspace.
+      </p>
+      <div className="mt-5 flex max-w-lg flex-wrap justify-center gap-2">
+        {quickPrompts.map((label) => (
+          <button
+            className="task-chip rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            key={label}
+            onClick={() => onPromptSelect(label)}
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+async function requestWorkspaceAi(input: {
+  conversation: AiChatMessage[];
+  prompt: string;
+  summary: WorkspaceAiSummary;
+  workspaceSlug: string;
+}): Promise<AiActionResult<WorkspaceAiReply>> {
+  try {
+    const response = await fetch("/api/ai/workspace-chat", {
+      body: JSON.stringify(input),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+    const result = (await response.json()) as unknown;
+
+    if (isAiResponse(result)) {
+      return result;
+    }
+  } catch {
+    return {
+      code: "provider-error",
+      message: "AI service is temporarily unavailable.",
+      ok: false,
+    };
+  }
+
+  return {
+    code: "provider-error",
+    message: "AI service returned an unexpected response.",
+    ok: false,
+  };
+}
+
+function isAiResponse(value: unknown): value is AiActionResult<WorkspaceAiReply> {
+  return typeof value === "object" && value !== null && "ok" in value;
+}
+
+function ChatBubble({
+  loading = false,
+  message,
+}: {
+  loading?: boolean;
+  message: AiChatMessage;
+}) {
+  const isAssistant = message.role === "assistant";
+
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-3",
+        isAssistant ? "justify-start" : "justify-end",
+      )}
+    >
+      {isAssistant ? (
+        <span className="task-chip mt-1 flex size-8 shrink-0 items-center justify-center rounded-md text-primary">
+          <Bot className="size-3.5" />
+        </span>
+      ) : null}
+      <div
+        className={cn(
+          "min-w-0 max-w-[86%] rounded-md border px-4 py-3 text-sm leading-6 shadow-sm shadow-black/10",
+          isAssistant
+            ? "task-card border-border text-foreground"
+            : "task-card-active border-primary/20 text-foreground",
+        )}
+      >
+        {loading ? (
+          <span className="inline-flex items-center gap-2 text-muted-foreground">
+            <LoaderCircle className="size-4 animate-spin" />
+            Thinking
+          </span>
+        ) : (
+          <MessageContent message={message} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MessageContent({ message }: { message: AiChatMessage }) {
+  if (message.role === "user") {
+    return <span className="whitespace-pre-wrap">{message.content}</span>;
+  }
+
+  return (
+    <ReactMarkdown
+      components={{
+        a: ({ children, href }) => (
+          <a
+            className="text-primary underline underline-offset-2"
+            href={href}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {children}
+          </a>
+        ),
+        code: ({ children }) => (
+          <code className="rounded bg-background/80 px-1 py-0.5 font-mono text-[0.85em] text-foreground">
+            {children}
+          </code>
+        ),
+        h1: ({ children }) => (
+          <h1 className="mb-2 text-base font-semibold text-foreground">
+            {children}
+          </h1>
+        ),
+        h2: ({ children }) => (
+          <h2 className="mb-2 text-base font-semibold text-foreground">
+            {children}
+          </h2>
+        ),
+        h3: ({ children }) => (
+          <h3 className="mb-2 text-sm font-semibold text-foreground">
+            {children}
+          </h3>
+        ),
+        li: ({ children }) => <li className="pl-1">{children}</li>,
+        ol: ({ children }) => (
+          <ol className="mb-3 ml-4 list-decimal space-y-1 last:mb-0">
+            {children}
+          </ol>
+        ),
+        p: ({ children }) => (
+          <p className="mb-3 whitespace-pre-wrap last:mb-0">{children}</p>
+        ),
+        pre: ({ children }) => (
+          <pre className="mb-3 overflow-x-auto rounded-md border border-border bg-background p-3 text-xs leading-5 last:mb-0">
+            {children}
+          </pre>
+        ),
+        strong: ({ children }) => (
+          <strong className="font-semibold text-foreground">{children}</strong>
+        ),
+        table: ({ children }) => (
+          <div className="mb-3 overflow-x-auto last:mb-0">
+            <table className="w-full border-collapse text-left text-xs">
+              {children}
+            </table>
+          </div>
+        ),
+        td: ({ children }) => (
+          <td className="border border-border px-2 py-1 align-top">
+            {children}
+          </td>
+        ),
+        th: ({ children }) => (
+          <th className="border border-border bg-background/60 px-2 py-1 font-semibold">
+            {children}
+          </th>
+        ),
+        ul: ({ children }) => (
+          <ul className="mb-3 ml-4 list-disc space-y-1 last:mb-0">
+            {children}
+          </ul>
+        ),
+      }}
+      remarkPlugins={[remarkGfm]}
+    >
+      {message.content}
+    </ReactMarkdown>
+  );
+}
+
+function getFirstName(name?: string | null) {
+  return name?.trim().split(/\s+/)[0] || "there";
+}

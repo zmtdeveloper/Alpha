@@ -1,6 +1,8 @@
 import { AppShell } from "@/components/app-shell";
+import { getWorkspaceAiAvailability } from "@/lib/ai/access";
+import { getWorkspaceBillingData } from "@/lib/billing/data";
 import { getWorkspaceShellContext } from "@/lib/auth/data";
-import { getWorkspaceQuickTaskTarget } from "@/lib/workspace/data";
+import { getWorkspaceOverviewData } from "@/lib/workspace/data";
 
 export default async function WorkspaceLayout({
   children,
@@ -10,14 +12,30 @@ export default async function WorkspaceLayout({
   params: Promise<{ workspaceSlug: string }>;
 }) {
   const { workspaceSlug } = await params;
-  const [context, quickTaskBoardSlug] = await Promise.all([
+  const [context, overviewData, billingData] = await Promise.all([
     getWorkspaceShellContext(workspaceSlug),
-    getWorkspaceQuickTaskTarget(workspaceSlug),
+    getWorkspaceOverviewData(workspaceSlug),
+    getWorkspaceBillingData(workspaceSlug),
   ]);
+  const workspaceAiAvailability = await getWorkspaceAiAvailability(
+    billingData.effectivePlan,
+  );
+  const workspaceAiSummary = {
+    activeColumnCount: overviewData.activeColumnCount,
+    dueSoonCount: overviewData.dueSoonCount,
+    inProgressCount: overviewData.inProgressCount,
+    memberCount: overviewData.memberCount,
+    openTaskCount: overviewData.openTaskCount,
+    projectCount: overviewData.projectCount,
+    userName: context.user.fullName,
+    workspaceName: overviewData.workspace.name,
+    workspaceSlug: overviewData.workspace.slug,
+  };
 
   return (
     <AppShell
-      quickTaskBoardSlug={quickTaskBoardSlug}
+      workspaceAiAvailability={workspaceAiAvailability}
+      workspaceAiSummary={workspaceAiSummary}
       user={context.user}
       workspace={context.workspace}
       workspaces={context.workspaces}

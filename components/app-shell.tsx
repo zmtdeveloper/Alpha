@@ -18,6 +18,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useActionState, useState } from "react";
 
+import { AskAiDrawer } from "@/components/workspace/ask-ai-drawer";
 import { SignOutMenuItem } from "@/components/sign-out-menu-item";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { createWorkspace } from "@/lib/auth/actions";
+import type {
+  WorkspaceAiAvailability,
+  WorkspaceAiSummary,
+} from "@/lib/ai/types";
 import {
   type AuthActionState,
   initialAuthActionState,
@@ -49,7 +54,8 @@ import { cn } from "@/lib/utils";
 
 type AppShellProps = {
   children: React.ReactNode;
-  quickTaskBoardSlug: string | null;
+  workspaceAiAvailability: WorkspaceAiAvailability;
+  workspaceAiSummary: WorkspaceAiSummary;
   user: {
     email: string;
     fullName: string;
@@ -76,7 +82,8 @@ const primaryNav = [
 
 export function AppShell({
   children,
-  quickTaskBoardSlug,
+  workspaceAiAvailability,
+  workspaceAiSummary,
   user,
   workspace,
   workspaces,
@@ -143,19 +150,11 @@ export function AppShell({
               <WorkspaceSearch workspaceSlug={workspace.slug} />
             </div>
 
-            <Button asChild size="sm" className="hidden sm:inline-flex">
-              <Link
-                className="inline-flex items-center gap-2"
-                href={
-                  quickTaskBoardSlug
-                    ? `${basePath}/boards/${quickTaskBoardSlug}?newTask=1`
-                    : `${basePath}/boards`
-                }
-              >
-                <Plus />
-                New task
-              </Link>
-            </Button>
+            <AskAiDrawer
+              availability={workspaceAiAvailability}
+              summary={workspaceAiSummary}
+              workspaceSlug={workspace.slug}
+            />
             <Button size="icon" variant="ghost" aria-label="Notifications">
               <Bell />
             </Button>
