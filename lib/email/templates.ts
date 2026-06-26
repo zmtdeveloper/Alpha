@@ -22,6 +22,12 @@ type InvitationEmailInput = {
   workspaceName: string;
 };
 
+type BillingUpgradeEmailInput = {
+  planName: string;
+  workspaceName: string;
+  workspaceUrl: string;
+};
+
 export function renderWelcomeEmail({
   fullName,
   workspaceName,
@@ -87,6 +93,37 @@ export function renderInvitationEmail({
       `This invitation expires ${expiry}.`,
       "",
       `Accept invitation: ${inviteUrl}`,
+    ].join("\n"),
+  };
+}
+
+export function renderBillingUpgradeEmail({
+  planName,
+  workspaceName,
+  workspaceUrl,
+}: BillingUpgradeEmailInput): RenderedEmail {
+  const subject = `${workspaceName} is now on ${planName}`;
+  const safePlan = escapeHtml(planName);
+  const safeUrl = escapeHtml(workspaceUrl);
+  const safeWorkspace = escapeHtml(workspaceName);
+
+  return {
+    html: shellHtml({
+      body: [
+        `<p><strong>${safeWorkspace}</strong> has been upgraded to ${safePlan}.</p>`,
+        `<p>Your workspace limits have been updated for the active plan.</p>`,
+        actionLink("Open billing", safeUrl),
+      ].join(""),
+      preview: `${workspaceName} has been upgraded to ${planName}.`,
+      title: "Billing upgraded",
+    }),
+    subject,
+    text: [
+      `${workspaceName} has been upgraded to ${planName}.`,
+      "",
+      "Your workspace limits have been updated for the active plan.",
+      "",
+      `Open billing: ${workspaceUrl}`,
     ].join("\n"),
   };
 }

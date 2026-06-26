@@ -8,6 +8,7 @@ import { createSlug } from "@/lib/auth/slug";
 import { hashInviteToken } from "@/lib/auth/invitations";
 import { upsertProfile } from "@/lib/auth/profile";
 import { expiredSessionMessage, getActionUser } from "@/lib/auth/session";
+import { planLimitErrorMessage } from "@/lib/billing/errors";
 import {
   type AuthActionState,
   formValue,
@@ -218,7 +219,9 @@ export async function acceptInvitation(
     .single();
 
   if (error || !data) {
-    return authMessage("Could not accept this invitation.");
+    return authMessage(
+      planLimitErrorMessage(error) ?? "Could not accept this invitation.",
+    );
   }
 
   redirect(`/${data.workspace_slug}`);

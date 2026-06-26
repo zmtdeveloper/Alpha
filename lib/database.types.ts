@@ -331,18 +331,21 @@ export type Database = {
       }
       stripe_webhook_events: {
         Row: {
+          event_created: string | null
           id: string
           payload: Json
           processed_at: string
           type: string
         }
         Insert: {
+          event_created?: string | null
           id: string
           payload: Json
           processed_at?: string
           type: string
         }
         Update: {
+          event_created?: string | null
           id?: string
           payload?: Json
           processed_at?: string
@@ -519,9 +522,12 @@ export type Database = {
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
+          last_stripe_event_created: string | null
+          last_stripe_event_id: string | null
           plan: Database["public"]["Enums"]["billing_plan"]
           status: Database["public"]["Enums"]["billing_status"]
           stripe_customer_id: string | null
+          stripe_price_id: string | null
           stripe_subscription_id: string | null
           updated_at: string
           workspace_id: number
@@ -531,9 +537,12 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          last_stripe_event_created?: string | null
+          last_stripe_event_id?: string | null
           plan?: Database["public"]["Enums"]["billing_plan"]
           status?: Database["public"]["Enums"]["billing_status"]
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
           stripe_subscription_id?: string | null
           updated_at?: string
           workspace_id: number
@@ -543,9 +552,12 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          last_stripe_event_created?: string | null
+          last_stripe_event_id?: string | null
           plan?: Database["public"]["Enums"]["billing_plan"]
           status?: Database["public"]["Enums"]["billing_status"]
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
           stripe_subscription_id?: string | null
           updated_at?: string
           workspace_id?: number
@@ -727,6 +739,9 @@ export type Database = {
         | "past_due"
         | "canceled"
         | "unpaid"
+        | "incomplete"
+        | "incomplete_expired"
+        | "paused"
       member_status: "active" | "invited" | "removed"
       project_status: "planned" | "active" | "paused" | "completed" | "canceled"
       task_priority: "none" | "low" | "medium" | "high" | "urgent"
@@ -869,6 +884,9 @@ export const Constants = {
         "past_due",
         "canceled",
         "unpaid",
+        "incomplete",
+        "incomplete_expired",
+        "paused",
       ],
       member_status: ["active", "invited", "removed"],
       project_status: ["planned", "active", "paused", "completed", "canceled"],

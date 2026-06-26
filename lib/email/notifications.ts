@@ -3,6 +3,7 @@ import "server-only";
 import type { Enums } from "@/lib/database.types";
 import { sendTransactionalEmail } from "@/lib/email/resend";
 import {
+  renderBillingUpgradeEmail,
   renderInvitationEmail,
   renderWelcomeEmail,
 } from "@/lib/email/templates";
@@ -24,6 +25,14 @@ type InvitationEmailInput = {
   role: Enums<"app_role">;
   workspaceName: string;
   workspaceSlug: string;
+};
+
+type BillingUpgradeEmailInput = {
+  email: string;
+  planName: string;
+  workspaceName: string;
+  workspaceSlug: string;
+  workspaceUrl: string;
 };
 
 export async function sendWelcomeEmail({
@@ -73,6 +82,30 @@ export async function sendInvitationEmail({
     logContext: {
       invitationId,
       role,
+      workspaceSlug,
+    },
+    to: email,
+  });
+}
+
+export async function sendBillingUpgradeEmail({
+  email,
+  planName,
+  workspaceName,
+  workspaceSlug,
+  workspaceUrl,
+}: BillingUpgradeEmailInput) {
+  const emailContent = renderBillingUpgradeEmail({
+    planName,
+    workspaceName,
+    workspaceUrl,
+  });
+
+  return sendTransactionalEmail({
+    ...emailContent,
+    kind: "billing-upgrade",
+    logContext: {
+      planName,
       workspaceSlug,
     },
     to: email,

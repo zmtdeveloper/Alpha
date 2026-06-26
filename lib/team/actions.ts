@@ -8,6 +8,7 @@ import { after } from "next/server";
 
 import { hashInviteToken } from "@/lib/auth/invitations";
 import { expiredSessionMessage, getActionUser } from "@/lib/auth/session";
+import { planLimitErrorMessage } from "@/lib/billing/errors";
 import type { Enums, Tables } from "@/lib/database.types";
 import { sendInvitationEmail } from "@/lib/email/notifications";
 import { createClient } from "@/lib/supabase/server";
@@ -185,7 +186,10 @@ export async function createInvitation(
     .single();
 
   if (error || !invitation) {
-    return actionMessage("Invitation could not be created.", fields);
+    return actionMessage(
+      planLimitErrorMessage(error) ?? "Invitation could not be created.",
+      fields,
+    );
   }
 
   after(async () => {
@@ -253,7 +257,9 @@ export async function resendInvitation(
     .is("revoked_at", null);
 
   if (error) {
-    return actionMessage("Invitation could not be resent.");
+    return actionMessage(
+      planLimitErrorMessage(error) ?? "Invitation could not be resent.",
+    );
   }
 
   after(async () => {

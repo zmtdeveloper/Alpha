@@ -44,6 +44,7 @@ import {
 
 type TeamManagementProps = {
   canManageTeam: boolean;
+  canResendInvitation: boolean;
   currentRole: "owner" | "admin" | "member" | null;
   invitations: TeamInvitation[];
   members: TeamMember[];
@@ -134,6 +135,7 @@ export function InviteMemberDialog({
 
 export function TeamManagement({
   canManageTeam,
+  canResendInvitation,
   currentRole,
   invitations,
   members,
@@ -183,6 +185,7 @@ export function TeamManagement({
               {pendingInvitations.map((invitation) => (
                 <InvitationRow
                   canManageTeam={canManageTeam}
+                  canResendInvitation={canResendInvitation}
                   currentRole={currentRole}
                   invitation={invitation}
                   key={invitation.id}
@@ -204,6 +207,7 @@ export function TeamManagement({
               {pastInvitations.map((invitation) => (
                 <InvitationRow
                   canManageTeam={false}
+                  canResendInvitation={canResendInvitation}
                   currentRole={currentRole}
                   invitation={invitation}
                   key={invitation.id}
@@ -335,11 +339,13 @@ function MemberRow({
 
 function InvitationRow({
   canManageTeam,
+  canResendInvitation,
   currentRole,
   invitation,
   workspaceSlug,
 }: {
   canManageTeam: boolean;
+  canResendInvitation: boolean;
   currentRole: TeamManagementProps["currentRole"];
   invitation: TeamInvitation;
   workspaceSlug: string;
@@ -383,6 +389,7 @@ function InvitationRow({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
+              disabled={!canResendInvitation}
               onSelect={() => {
                 startTransition(async () => {
                   const result = await resendInvitation({

@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(32);
+select plan(46);
 
 insert into auth.users (id, email)
 values
@@ -15,7 +15,16 @@ values
   ('00000000-0000-0000-0000-000000000004', 'outsider@example.com'),
   ('00000000-0000-0000-0000-000000000005', 'new-owner@example.com'),
   ('00000000-0000-0000-0000-000000000006', 'new-member@example.com'),
-  ('00000000-0000-0000-0000-000000000007', 'admin-a@example.com');
+  ('00000000-0000-0000-0000-000000000007', 'admin-a@example.com'),
+  ('00000000-0000-0000-0000-000000000008', 'free-owner@example.com'),
+  ('00000000-0000-0000-0000-000000000009', 'free-invitee@example.com'),
+  ('00000000-0000-0000-0000-000000000010', 'lite-owner@example.com'),
+  ('00000000-0000-0000-0000-000000000011', 'lite-member-one@example.com'),
+  ('00000000-0000-0000-0000-000000000012', 'lite-member-two@example.com'),
+  ('00000000-0000-0000-0000-000000000013', 'lite-member-three@example.com'),
+  ('00000000-0000-0000-0000-000000000014', 'pro-owner@example.com'),
+  ('00000000-0000-0000-0000-000000000015', 'pro-member@example.com'),
+  ('00000000-0000-0000-0000-000000000016', 'past-due-owner@example.com');
 
 insert into public.profiles (id, full_name)
 values
@@ -23,26 +32,94 @@ values
   ('00000000-0000-0000-0000-000000000002', 'Member A'),
   ('00000000-0000-0000-0000-000000000003', 'Owner B'),
   ('00000000-0000-0000-0000-000000000004', 'Outsider'),
-  ('00000000-0000-0000-0000-000000000007', 'Admin A');
+  ('00000000-0000-0000-0000-000000000007', 'Admin A'),
+  ('00000000-0000-0000-0000-000000000008', 'Free Owner'),
+  ('00000000-0000-0000-0000-000000000009', 'Free Invitee'),
+  ('00000000-0000-0000-0000-000000000010', 'Lite Owner'),
+  ('00000000-0000-0000-0000-000000000011', 'Lite Member One'),
+  ('00000000-0000-0000-0000-000000000012', 'Lite Member Two'),
+  ('00000000-0000-0000-0000-000000000013', 'Lite Member Three'),
+  ('00000000-0000-0000-0000-000000000014', 'Pro Owner'),
+  ('00000000-0000-0000-0000-000000000015', 'Pro Member'),
+  ('00000000-0000-0000-0000-000000000016', 'Past Due Owner');
 
 insert into public.workspaces (id, name, slug, owner_id)
 overriding system value
 values
   (100, 'Workspace A', 'workspace-a', '00000000-0000-0000-0000-000000000001'),
-  (200, 'Workspace B', 'workspace-b', '00000000-0000-0000-0000-000000000003');
+  (200, 'Workspace B', 'workspace-b', '00000000-0000-0000-0000-000000000003'),
+  (300, 'Free Limits', 'free-limits', '00000000-0000-0000-0000-000000000008'),
+  (301, 'Free Accept Limits', 'free-accept-limits', '00000000-0000-0000-0000-000000000008'),
+  (400, 'Lite Limits', 'lite-limits', '00000000-0000-0000-0000-000000000010'),
+  (401, 'Lite Pending Limits', 'lite-pending-limits', '00000000-0000-0000-0000-000000000010'),
+  (500, 'Pro Limits', 'pro-limits', '00000000-0000-0000-0000-000000000014'),
+  (600, 'Past Due Limits', 'past-due-limits', '00000000-0000-0000-0000-000000000016');
+
+insert into public.workspace_billing (workspace_id, plan, status)
+values
+  (100, 'pro', 'active'),
+  (200, 'free', 'inactive'),
+  (300, 'free', 'inactive'),
+  (301, 'lite', 'active'),
+  (400, 'lite', 'active'),
+  (401, 'lite', 'active'),
+  (500, 'pro', 'active'),
+  (600, 'pro', 'active')
+on conflict (workspace_id) do update
+set plan = excluded.plan,
+    status = excluded.status;
 
 insert into public.workspace_members (workspace_id, user_id, role, status)
 values
   (100, '00000000-0000-0000-0000-000000000001', 'owner', 'active'),
   (100, '00000000-0000-0000-0000-000000000002', 'member', 'active'),
   (100, '00000000-0000-0000-0000-000000000007', 'admin', 'active'),
-  (200, '00000000-0000-0000-0000-000000000003', 'owner', 'active');
+  (200, '00000000-0000-0000-0000-000000000003', 'owner', 'active'),
+  (300, '00000000-0000-0000-0000-000000000008', 'owner', 'active'),
+  (301, '00000000-0000-0000-0000-000000000008', 'owner', 'active'),
+  (400, '00000000-0000-0000-0000-000000000010', 'owner', 'active'),
+  (400, '00000000-0000-0000-0000-000000000011', 'member', 'active'),
+  (400, '00000000-0000-0000-0000-000000000012', 'member', 'active'),
+  (401, '00000000-0000-0000-0000-000000000010', 'owner', 'active'),
+  (401, '00000000-0000-0000-0000-000000000011', 'member', 'active'),
+  (500, '00000000-0000-0000-0000-000000000014', 'owner', 'active'),
+  (600, '00000000-0000-0000-0000-000000000016', 'owner', 'active');
 
 insert into public.projects (id, workspace_id, name, slug, status, lead_id, created_by, sort_order)
 overriding system value
 values
   (100, 100, 'Launch Alpha', 'launch-alpha', 'active', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 1000),
-  (200, 200, 'Scale Platform', 'scale-platform', 'active', '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003', 1000);
+  (200, 200, 'Scale Platform', 'scale-platform', 'active', '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003', 1000),
+  (300, 300, 'Free Project', 'free-project', 'active', '00000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-000000000008', 1000),
+  (6001, 600, 'Past Due One', 'past-due-one', 'active', '00000000-0000-0000-0000-000000000016', '00000000-0000-0000-0000-000000000016', 1000),
+  (6002, 600, 'Past Due Two', 'past-due-two', 'active', '00000000-0000-0000-0000-000000000016', '00000000-0000-0000-0000-000000000016', 2000);
+
+insert into public.projects (id, workspace_id, name, slug, status, lead_id, created_by, sort_order)
+overriding system value
+select
+  4000 + item_index,
+  400,
+  'Lite Project ' || item_index::text,
+  'lite-project-' || item_index::text,
+  'active',
+  '00000000-0000-0000-0000-000000000010',
+  '00000000-0000-0000-0000-000000000010',
+  item_index * 1000
+from generate_series(1, 10) as series(item_index);
+
+insert into public.invitations (workspace_id, token_hash, email, role, invited_by, expires_at)
+values
+  (301, repeat('e', 64), 'free-invitee@example.com', 'member', '00000000-0000-0000-0000-000000000008', now() + interval '7 days'),
+  (401, repeat('f', 64), 'lite-pending@example.com', 'member', '00000000-0000-0000-0000-000000000010', now() + interval '7 days');
+
+update public.workspace_billing
+set plan = 'free',
+    status = 'inactive'
+where workspace_id = 301;
+
+update public.workspace_billing
+set status = 'past_due'
+where workspace_id = 600;
 
 insert into public.boards (id, workspace_id, project_id, name, slug, created_by)
 overriding system value
@@ -340,6 +417,145 @@ select is(
   ),
   1,
   'invite acceptance marks the invitation accepted'
+);
+
+reset role;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000008';
+set local "request.jwt.claim.email" = 'free-owner@example.com';
+
+select throws_ok(
+  $$insert into public.invitations (workspace_id, token_hash, email, role, invited_by, expires_at)
+    values (300, repeat('g', 64), 'blocked-free@example.com', 'member', '00000000-0000-0000-0000-000000000008', now() + interval '7 days')$$,
+  'P0001',
+  'Workspace member limit reached for current plan',
+  'free plan blocks invitations when the owner already fills the member limit'
+);
+
+select throws_ok(
+  $$insert into public.projects (workspace_id, name, slug, status, created_by)
+    values (300, 'Second Free Project', 'second-free-project', 'active', '00000000-0000-0000-0000-000000000008')$$,
+  'P0001',
+  'Workspace project limit reached for current plan',
+  'free plan blocks a second project'
+);
+
+reset role;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000009';
+set local "request.jwt.claim.email" = 'free-invitee@example.com';
+
+select throws_ok(
+  $$select * from public.accept_workspace_invitation(repeat('e', 64))$$,
+  'P0001',
+  'Workspace member limit reached for current plan',
+  'accepting an invite rechecks the free member limit after downgrade'
+);
+
+reset role;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000010';
+set local "request.jwt.claim.email" = 'lite-owner@example.com';
+
+select is(
+  (
+    select count(*)::int
+    from public.workspace_members
+    where workspace_id = 400
+      and status = 'active'
+  ),
+  3,
+  'lite plan allows three active users total'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.projects
+    where workspace_id = 400
+  ),
+  10,
+  'lite plan allows ten projects'
+);
+
+select throws_ok(
+  $$insert into public.invitations (workspace_id, token_hash, email, role, invited_by, expires_at)
+    values (400, repeat('h', 64), 'blocked-lite@example.com', 'member', '00000000-0000-0000-0000-000000000010', now() + interval '7 days')$$,
+  'P0001',
+  'Workspace member limit reached for current plan',
+  'lite plan blocks the fourth user via invitation'
+);
+
+select throws_ok(
+  $$insert into public.workspace_members (workspace_id, user_id, role, status)
+    values (400, '00000000-0000-0000-0000-000000000013', 'member', 'active')$$,
+  'P0001',
+  'Workspace member limit reached for current plan',
+  'lite plan blocks the fourth active member'
+);
+
+select throws_ok(
+  $$insert into public.projects (workspace_id, name, slug, status, created_by)
+    values (400, 'Lite Project 11', 'lite-project-11', 'active', '00000000-0000-0000-0000-000000000010')$$,
+  'P0001',
+  'Workspace project limit reached for current plan',
+  'lite plan blocks the eleventh project'
+);
+
+select throws_ok(
+  $$insert into public.invitations (workspace_id, token_hash, email, role, invited_by, expires_at)
+    values (401, repeat('i', 64), 'blocked-lite-pending@example.com', 'member', '00000000-0000-0000-0000-000000000010', now() + interval '7 days')$$,
+  'P0001',
+  'Workspace member limit reached for current plan',
+  'pending invitations reserve lite member capacity'
+);
+
+reset role;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000014';
+set local "request.jwt.claim.email" = 'pro-owner@example.com';
+
+select lives_ok(
+  $$insert into public.workspace_members (workspace_id, user_id, role, status)
+    values (500, '00000000-0000-0000-0000-000000000015', 'member', 'active')$$,
+  'pro plan allows additional active members'
+);
+
+select lives_ok(
+  $$insert into public.projects (workspace_id, name, slug, status, created_by)
+    values (500, 'Pro Project', 'pro-project', 'active', '00000000-0000-0000-0000-000000000014')$$,
+  'pro plan allows additional projects'
+);
+
+reset role;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000016';
+set local "request.jwt.claim.email" = 'past-due-owner@example.com';
+
+select is(
+  (
+    select count(*)::int
+    from public.projects
+    where workspace_id = 600
+  ),
+  2,
+  'past due workspaces keep existing projects'
+);
+
+select throws_ok(
+  $$insert into public.projects (workspace_id, name, slug, status, created_by)
+    values (600, 'Past Due New Project', 'past-due-new-project', 'active', '00000000-0000-0000-0000-000000000016')$$,
+  'P0001',
+  'Workspace project limit reached for current plan',
+  'past due subscriptions use free project limits for new projects'
+);
+
+select throws_ok(
+  $$insert into public.invitations (workspace_id, token_hash, email, role, invited_by, expires_at)
+    values (600, repeat('j', 64), 'blocked-past-due@example.com', 'member', '00000000-0000-0000-0000-000000000016', now() + interval '7 days')$$,
+  'P0001',
+  'Workspace member limit reached for current plan',
+  'past due subscriptions use free member limits for new invitations'
 );
 
 select * from finish();

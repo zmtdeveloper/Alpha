@@ -113,12 +113,20 @@ export default async function Home() {
           <p className="font-mono text-sm uppercase tracking-[0.28em] text-zinc-300">
             Alpha
           </p>
-          <Link
-            href="/login"
-            className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-white/35 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#7f7af0] focus:ring-offset-2 focus:ring-offset-[#1f1f22]"
-          >
-            Sign in
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/pricing"
+              className="rounded-md px-3 py-2 text-sm font-medium text-zinc-400 transition hover:text-white focus:outline-none focus:ring-2 focus:ring-[#7f7af0] focus:ring-offset-2 focus:ring-offset-[#1f1f22]"
+            >
+              Pricing
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-white/35 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#7f7af0] focus:ring-offset-2 focus:ring-offset-[#1f1f22]"
+            >
+              Sign in
+            </Link>
+          </div>
         </header>
 
         <section className="relative z-10 flex min-h-[calc(100vh-5rem)] items-center px-5 pb-24 pt-10 sm:px-8 lg:px-10">
@@ -141,10 +149,10 @@ export default async function Home() {
                 Create workspace
               </Link>
               <Link
-                href="/login"
+                href="/pricing"
                 className="inline-flex h-11 items-center justify-center rounded-md border border-white/15 bg-white/5 px-5 text-sm font-semibold text-zinc-200 transition hover:border-white/35 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#7f7af0] focus:ring-offset-2 focus:ring-offset-[#1f1f22]"
               >
-                Open workspace
+                View pricing
               </Link>
             </div>
           </div>

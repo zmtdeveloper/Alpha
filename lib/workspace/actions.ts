@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createSlug } from "@/lib/auth/slug";
 import { expiredSessionMessage, getActionUser } from "@/lib/auth/session";
+import { planLimitErrorMessage } from "@/lib/billing/errors";
 import type { Enums } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -56,8 +57,11 @@ function okMessage(message: string) {
   } satisfies WorkspaceActionState;
 }
 
-function safeErrorMessage(fallback: string) {
-  return fallback;
+function safeErrorMessage(
+  fallback: string,
+  error?: { message?: string } | null,
+) {
+  return planLimitErrorMessage(error ?? null) ?? fallback;
 }
 
 function fieldErrors(error: {
@@ -187,7 +191,10 @@ export async function createProject(
   });
 
   if (error) {
-    return actionMessage(safeErrorMessage("Project could not be created."), fields);
+    return actionMessage(
+      safeErrorMessage("Project could not be created.", error),
+      fields,
+    );
   }
 
   revalidateWorkspace(parsed.data.workspaceSlug);

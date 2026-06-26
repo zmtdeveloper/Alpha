@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/empty-state";
 import { DeleteButton } from "@/components/workspace/delete-button";
 import { ProjectDialog } from "@/components/workspace/forms";
 import { Button } from "@/components/ui/button";
+import { getWorkspaceLimitState } from "@/lib/billing/data";
 import { getProjectsPageData } from "@/lib/workspace/data";
 import { cn } from "@/lib/utils";
 
@@ -63,7 +64,10 @@ export default async function ProjectsPage({
   params: Promise<{ workspaceSlug: string }>;
 }) {
   const { workspaceSlug } = await params;
-  const { members, projects } = await getProjectsPageData(workspaceSlug);
+  const [{ members, projects }, limits] = await Promise.all([
+    getProjectsPageData(workspaceSlug),
+    getWorkspaceLimitState(workspaceSlug),
+  ]);
   const boardTotal = projects.reduce(
     (total, project) => total + project.boardCount,
     0,
@@ -98,17 +102,41 @@ export default async function ProjectsPage({
             </span>
           </div>
         </div>
-        <ProjectDialog
-          members={members}
-          trigger={
-            <Button>
-              <Plus />
-              New project
-            </Button>
-          }
-          workspaceSlug={workspaceSlug}
-        />
+        {limits.canCreateProject ? (
+          <ProjectDialog
+            members={members}
+            trigger={
+              <Button>
+                <Plus />
+                New project
+              </Button>
+            }
+            workspaceSlug={workspaceSlug}
+          />
+        ) : (
+          <Button disabled>
+            <Plus />
+            New project
+          </Button>
+        )}
       </section>
+
+      {!limits.canCreateProject ? (
+        <section className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
+          {limits.plan.name} allows {limits.projectLimit}{" "}
+          {limits.projectLimit === 1 ? "project" : "projects"}; this workspace
+          has {projects.length}. Existing projects stay available, but new
+          projects are blocked until usage is under the limit or the workspace
+          is upgraded.{" "}
+          <Link
+            className="font-medium underline underline-offset-4"
+            href={`/${workspaceSlug}/settings/billing`}
+          >
+            Open billing
+          </Link>
+          .
+        </section>
+      ) : null}
 
       {projects.length > 0 ? (
         <section className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
