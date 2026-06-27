@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(46);
+select plan(62);
 
 insert into auth.users (id, email)
 values
@@ -140,6 +140,24 @@ values
   (50000, 100, 100, 1000, 10000, 'Tenant A task', 1000, '00000000-0000-0000-0000-000000000001'),
   (60000, 200, 200, 2000, 20000, 'Tenant B task', 1000, '00000000-0000-0000-0000-000000000003');
 
+set local role anon;
+
+select throws_ok(
+  $$select count(*) from public.workspaces$$,
+  '42501',
+  'permission denied for table workspaces',
+  'anonymous users cannot read app tables'
+);
+
+select throws_ok(
+  $$insert into public.profiles (id)
+    values ('00000000-0000-0000-0000-000000000004')$$,
+  '42501',
+  'permission denied for table profiles',
+  'anonymous users cannot write app tables'
+);
+
+reset role;
 set local role authenticated;
 set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000002';
 set local "request.jwt.claim.email" = 'member-a@example.com';
@@ -206,6 +224,38 @@ select throws_ok(
   'member cannot attach a task to the wrong project'
 );
 
+select throws_ok(
+  $$insert into public.projects (workspace_id, name, slug, status, created_by)
+    values (100, 'Forged Project Actor', 'forged-project-actor', 'active', '00000000-0000-0000-0000-000000000001')$$,
+  'P0001',
+  'Project creator must match current user',
+  'member cannot forge project created_by'
+);
+
+select throws_ok(
+  $$insert into public.boards (workspace_id, project_id, name, slug, created_by)
+    values (100, 100, 'Forged Board Actor', 'forged-board-actor', '00000000-0000-0000-0000-000000000001')$$,
+  'P0001',
+  'Board creator must match current user',
+  'member cannot forge board created_by'
+);
+
+select throws_ok(
+  $$insert into public.tasks (workspace_id, project_id, board_id, column_id, title, created_by)
+    values (100, 100, 1000, 10000, 'Forged task actor', '00000000-0000-0000-0000-000000000001')$$,
+  'P0001',
+  'Task creator must match current user',
+  'member cannot forge task created_by'
+);
+
+select throws_ok(
+  $$insert into public.task_assignees (task_id, profile_id, assigned_by)
+    values (50000, '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001')$$,
+  'P0001',
+  'Task assignment actor must match current user',
+  'member cannot forge task assignment actor'
+);
+
 reset role;
 set local role authenticated;
 set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000004';
@@ -264,6 +314,31 @@ select is(
 select lives_ok(
   $$select * from public.move_task(50000, 10000, 1750)$$,
   'owner can move tasks in their workspace'
+);
+
+select lives_ok(
+  $$update public.workspace_billing
+    set plan = 'free'
+    where workspace_id = 100$$,
+  'owner direct billing update is filtered by RLS'
+);
+
+select is(
+  (
+    select plan::text
+    from public.workspace_billing
+    where workspace_id = 100
+  ),
+  'pro',
+  'authenticated clients cannot write workspace billing state'
+);
+
+select throws_ok(
+  $$insert into public.stripe_webhook_events (id, type, payload)
+    values ('evt_auth_blocked', 'test.event', '{}'::jsonb)$$,
+  '42501',
+  'new row violates row-level security policy for table "stripe_webhook_events"',
+  'authenticated clients cannot write Stripe webhook event state'
 );
 
 reset role;
@@ -370,6 +445,24 @@ select is(
   ),
   'workspace-a',
   'invited user can preview a valid invitation without workspace membership'
+);
+
+select lives_ok(
+  $$update public.invitations
+    set accepted_at = timezone('utc', now())
+    where token_hash = repeat('a', 64)$$,
+  'recipient direct invitation acceptance is filtered by RLS'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.invitations
+    where token_hash = repeat('a', 64)
+      and accepted_at is not null
+  ),
+  0,
+  'recipient cannot mark an invitation accepted directly'
 );
 
 reset role;
@@ -556,6 +649,136 @@ select throws_ok(
   'P0001',
   'Workspace member limit reached for current plan',
   'past due subscriptions use free member limits for new invitations'
+);
+
+reset role;
+
+select is(
+  (
+    select count(*)::int
+    from pg_class c
+    join pg_namespace n
+      on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = any(array[
+        'profiles',
+        'workspaces',
+        'workspace_members',
+        'invitations',
+        'projects',
+        'boards',
+        'board_columns',
+        'tasks',
+        'task_assignees',
+        'labels',
+        'task_labels',
+        'workspace_billing',
+        'stripe_webhook_events'
+      ])
+      and (not c.relrowsecurity or not c.relforcerowsecurity)
+  ),
+  0,
+  'all app-owned public tables have RLS enabled and forced'
+);
+
+select is(
+  (
+    select count(*)::int
+    from (
+      select c.relname
+      from pg_class c
+      join pg_namespace n
+        on n.oid = c.relnamespace
+      left join pg_policy p
+        on p.polrelid = c.oid
+      where n.nspname = 'public'
+        and c.relname = any(array[
+          'profiles',
+          'workspaces',
+          'workspace_members',
+          'invitations',
+          'projects',
+          'boards',
+          'board_columns',
+          'tasks',
+          'task_assignees',
+          'labels',
+          'task_labels',
+          'workspace_billing'
+        ])
+      group by c.relname
+      having count(p.oid) = 0
+    ) policyless_tables
+  ),
+  0,
+  'all client-readable app tables have at least one RLS policy'
+);
+
+select is(
+  (
+    select count(*)::int
+    from pg_class c
+    join pg_namespace n
+      on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = any(array[
+        'profiles',
+        'workspaces',
+        'workspace_members',
+        'invitations',
+        'projects',
+        'boards',
+        'board_columns',
+        'tasks',
+        'task_assignees',
+        'labels',
+        'task_labels',
+        'workspace_billing',
+        'stripe_webhook_events'
+      ])
+      and (
+        has_table_privilege('anon', c.oid, 'select')
+        or has_table_privilege('anon', c.oid, 'insert')
+        or has_table_privilege('anon', c.oid, 'update')
+        or has_table_privilege('anon', c.oid, 'delete')
+      )
+  ),
+  0,
+  'anonymous role has no direct app table privileges'
+);
+
+select is(
+  (
+    select count(*)::int
+    from pg_proc p
+    join pg_namespace n
+      on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prosecdef
+      and has_function_privilege('anon', p.oid, 'execute')
+  ),
+  0,
+  'anonymous role cannot execute public SECURITY DEFINER functions'
+);
+
+select is(
+  (
+    select count(*)::int
+    from pg_proc p
+    join pg_namespace n
+      on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prosecdef
+      and has_function_privilege('authenticated', p.oid, 'execute')
+      and (p.proname, pg_get_function_identity_arguments(p.oid)) not in (
+        ('accept_workspace_invitation', 'p_token_hash text'),
+        ('create_workspace_for_current_user', 'p_full_name text, p_workspace_name text, p_workspace_slug text'),
+        ('get_workspace_invitation_preview', 'p_token_hash text'),
+        ('move_task', 'p_task_id bigint, p_target_column_id bigint, p_new_sort_order numeric')
+      )
+  ),
+  0,
+  'authenticated public SECURITY DEFINER RPCs stay inside the explicit allowlist'
 );
 
 select * from finish();
