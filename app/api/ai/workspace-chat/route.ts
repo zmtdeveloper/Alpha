@@ -1,5 +1,11 @@
-import { handleWorkspaceAiRequest } from "@/lib/ai/workspace-chat";
+import { logAiAction } from "@/lib/ai/log-ai-action";
+import {
+  extractStreamTextDelta,
+  streamWorkspaceAiReply,
+} from "@/lib/ai/nvidia";
+import { prepareWorkspaceAiRequest } from "@/lib/ai/workspace-chat";
 import type { AiActionErrorCode } from "@/lib/ai/types";
+import { performance } from "node:perf_hooks";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -17,10 +23,96 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await handleWorkspaceAiRequest(body);
+  const prepared = await prepareWorkspaceAiRequest(body);
 
-  return Response.json(result, {
-    status: result.ok ? 200 : statusForAiError(result.code),
+  if (!prepared.ok) {
+    return Response.json(prepared, {
+      status: statusForAiError(prepared.code),
+    });
+  }
+
+  const encoder = new TextEncoder();
+  const {
+    config,
+    conversation,
+    prompt,
+    startedAt,
+    summary,
+    userId,
+    workspace,
+  } = prepared.data;
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let finishReason: string | null = null;
+      let streamed = false;
+
+      try {
+        const completionStream = await streamWorkspaceAiReply({
+          conversation,
+          prompt,
+          provider: config,
+          summary,
+        });
+
+        for await (const chunk of completionStream) {
+          const choice = chunk.choices[0];
+          const text = extractStreamTextDelta(choice?.delta);
+
+          finishReason = choice?.finish_reason ?? finishReason;
+
+          if (!text) {
+            continue;
+          }
+
+          streamed = true;
+          controller.enqueue(encoder.encode(text));
+        }
+
+        logAiAction({
+          actionType: "workspace-chat",
+          durationMs: performance.now() - startedAt,
+          errorCode: null,
+          finishReason,
+          model: config.model,
+          provider: config.provider,
+          status: "success",
+          tokenUsage: null,
+          userId,
+          workspaceId: workspace.id,
+        });
+        controller.close();
+      } catch (error) {
+        logAiAction({
+          actionType: "workspace-chat",
+          durationMs: performance.now() - startedAt,
+          errorCode: "provider-error",
+          finishReason,
+          model: config.model,
+          provider: config.provider,
+          status: "failure",
+          tokenUsage: null,
+          userId,
+          workspaceId: workspace.id,
+        });
+
+        if (!streamed) {
+          controller.error(error);
+          return;
+        }
+
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Cache-Control": "no-cache, no-transform",
+      "Content-Type": "text/plain; charset=utf-8",
+      "X-Accel-Buffering": "no",
+    },
+    status: 200,
   });
 }
 

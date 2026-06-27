@@ -23,6 +23,7 @@ export default async function WorkspaceLayout({
   const workspaceAiSummary = {
     activeColumnCount: overviewData.activeColumnCount,
     dueSoonCount: overviewData.dueSoonCount,
+    focusTasks: overviewData.focusTasks,
     inProgressCount: overviewData.inProgressCount,
     memberCount: overviewData.memberCount,
     openTaskCount: overviewData.openTaskCount,

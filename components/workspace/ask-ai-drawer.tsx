@@ -14,6 +14,7 @@ import {
   useState,
   useTransition,
   type FormEvent,
+  type KeyboardEvent,
 } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -87,8 +88,10 @@ function EnabledAskAiDrawer({
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [prompt, setPrompt] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [streamStarted, setStreamStarted] = useState(false);
   const [pending, startTransition] = useTransition();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const firstName = useMemo(
     () => getFirstName(summary.userName),
     [summary.userName],
@@ -105,12 +108,10 @@ function EnabledAskAiDrawer({
       return;
     }
 
-    node.scrollTo({ behavior: "smooth", top: node.scrollHeight });
+    node.scrollTo({ behavior: "smooth", left: 0, top: node.scrollHeight });
   }, [messages, open, pending]);
 
-  function submitPrompt(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  function sendPrompt() {
     const trimmedPrompt = prompt.trim();
 
     if (!trimmedPrompt || pending) {
@@ -126,10 +127,54 @@ function EnabledAskAiDrawer({
     setMessages((current) => [...current, userMessage]);
     setPrompt("");
     setError(null);
+    setStreamStarted(false);
 
     startTransition(async () => {
+      let assistantStarted = false;
       const result = await requestWorkspaceAi({
         conversation,
+        onDelta: (delta) => {
+          if (!delta) {
+            return;
+          }
+
+          setStreamStarted(true);
+          if (!assistantStarted) {
+            assistantStarted = true;
+
+            setMessages((current) => [
+              ...current,
+              {
+                content: delta,
+                role: "assistant",
+              },
+            ]);
+
+            return;
+          }
+
+          setMessages((current) => {
+            const next = [...current];
+            const last = next[next.length - 1];
+
+            if (last?.role !== "assistant") {
+              return [
+                ...next,
+                {
+                  content: delta,
+                  role: "assistant",
+                },
+              ];
+            }
+
+            next[next.length - 1] = {
+              ...last,
+              content: `${last.content}${delta}`,
+            };
+
+            return next;
+          });
+        },
         prompt: trimmedPrompt,
         summary,
         workspaceSlug,
@@ -140,15 +185,53 @@ function EnabledAskAiDrawer({
         return;
       }
 
-      setMessages((current) => [
-        ...current,
-        {
-          content: result.data.reply,
-          role: "assistant",
-        },
-      ]);
+      if (!assistantStarted && result.data.reply) {
+        setMessages((current) => [
+          ...current,
+          {
+            content: result.data.reply,
+            role: "assistant",
+          },
+        ]);
+      }
     });
   }
+
+  function submitPrompt(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    sendPrompt();
+  }
+
+  function handlePromptKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (
+      event.key !== "Enter" ||
+      event.shiftKey ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey ||
+      event.nativeEvent.isComposing
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    sendPrompt();
+  }
+
+  function resizePromptInput() {
+    const node = textareaRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    node.style.height = "0px";
+    node.style.height = `${Math.min(node.scrollHeight, 128)}px`;
+  }
+
+  useEffect(() => {
+    resizePromptInput();
+  }, [prompt, open]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -158,8 +241,8 @@ function EnabledAskAiDrawer({
           <span className="hidden sm:inline">Ask AI</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="left-auto right-0 top-0 h-svh w-[min(96vw,42rem)] max-w-none translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 border-l-border bg-popover p-0 [&>button]:right-5 [&>button]:top-5">
-        <div className="flex h-full min-h-svh flex-col bg-popover text-popover-foreground">
+      <DialogContent className="left-auto right-0 top-0 h-svh w-[min(96vw,42rem)] max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-y-0 border-r-0 border-l-border bg-popover p-0 [&>button]:right-5 [&>button]:top-5">
+        <div className="flex h-full min-h-svh w-full max-w-full flex-col overflow-hidden bg-popover text-popover-foreground">
           <DialogHeader className="border-b border-border px-6 py-5 pr-14">
             <div className="flex items-center gap-2">
               <span className="task-chip flex size-9 items-center justify-center rounded-md text-primary">
@@ -178,7 +261,7 @@ function EnabledAskAiDrawer({
 
           <div
             className={cn(
-              "min-h-0 flex-1 overflow-y-auto bg-background/35 px-6",
+              "min-h-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto bg-background/35 px-6",
               messages.length > 0
                 ? "space-y-4 py-5"
                 : "flex items-center justify-center py-8",
@@ -199,7 +282,7 @@ function EnabledAskAiDrawer({
                 />
               ))
             )}
-            {pending ? (
+            {pending && !streamStarted ? (
               <ChatBubble
                 message={{
                   content: "Thinking...",
@@ -217,26 +300,29 @@ function EnabledAskAiDrawer({
           ) : null}
 
           <form
-            className="border-t border-border bg-popover/95 px-5 py-4"
+            className="border-t border-border bg-popover/95 px-5 py-3"
             onSubmit={submitPrompt}
           >
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-2 rounded-lg border border-border bg-background/70 p-1.5 shadow-sm shadow-black/10 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/35">
               <label className="min-w-0 flex-1 text-sm">
                 <span className="sr-only">Ask a question</span>
                 <textarea
                   className={cn(
-                    "max-h-36 min-h-12 w-full resize-none rounded-md border border-border bg-background/70 px-4 py-3 text-sm leading-6 text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40",
+                    "block max-h-32 min-h-10 w-full resize-none overflow-y-auto border-0 bg-transparent px-2.5 py-2 text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed",
                     pending && "opacity-80",
                   )}
                   disabled={pending}
                   onChange={(event) => setPrompt(event.target.value)}
+                  onKeyDown={handlePromptKeyDown}
                   placeholder={`Ask about ${summary.workspaceName}...`}
+                  ref={textareaRef}
+                  rows={1}
                   value={prompt}
                 />
               </label>
               <Button
                 aria-label="Send prompt"
-                className="size-12 rounded-md"
+                className="h-10 w-11 shrink-0 rounded-md border border-primary/55 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 [&_svg]:size-4"
                 disabled={pending || prompt.trim().length === 0}
                 size="icon"
                 type="submit"
@@ -248,7 +334,7 @@ function EnabledAskAiDrawer({
                 )}
               </Button>
             </div>
-            <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
               <CheckCircle2 className="size-3.5" />
               AI suggestions only. Nothing changes automatically.
             </p>
@@ -298,6 +384,7 @@ function AiEmptyState({
 
 async function requestWorkspaceAi(input: {
   conversation: AiChatMessage[];
+  onDelta?: (delta: string) => void;
   prompt: string;
   summary: WorkspaceAiSummary;
   workspaceSlug: string;
@@ -310,11 +397,54 @@ async function requestWorkspaceAi(input: {
       },
       method: "POST",
     });
-    const result = (await response.json()) as unknown;
+    const contentType = response.headers.get("Content-Type") ?? "";
 
-    if (isAiResponse(result)) {
-      return result;
+    if (contentType.includes("application/json")) {
+      const result = (await response.json()) as unknown;
+
+      if (isAiResponse(result)) {
+        return result;
+      }
     }
+
+    if (!response.ok || !response.body) {
+      return {
+        code: "provider-error",
+        message: "AI service is temporarily unavailable.",
+        ok: false,
+      };
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let reply = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      const delta = decoder.decode(value, { stream: true });
+
+      if (!delta) {
+        continue;
+      }
+
+      reply += delta;
+      input.onDelta?.(delta);
+    }
+
+    reply += decoder.decode();
+
+    return {
+      data: {
+        finishReason: null,
+        reply,
+      },
+      ok: true,
+    };
   } catch {
     return {
       code: "provider-error",
@@ -346,7 +476,7 @@ function ChatBubble({
   return (
     <div
       className={cn(
-        "flex items-start gap-3",
+        "flex w-full min-w-0 max-w-full items-start gap-3 overflow-hidden",
         isAssistant ? "justify-start" : "justify-end",
       )}
     >
@@ -357,11 +487,12 @@ function ChatBubble({
       ) : null}
       <div
         className={cn(
-          "min-w-0 max-w-[86%] rounded-md border px-4 py-3 text-sm leading-6 shadow-sm shadow-black/10",
+          "min-w-0 overflow-hidden rounded-md border px-4 py-3 text-sm leading-6 shadow-sm shadow-black/10",
           isAssistant
-            ? "task-card border-border text-foreground"
-            : "task-card-active border-primary/20 text-foreground",
+            ? "task-card w-[min(100%,36rem)] border-border text-foreground"
+            : "task-card-active w-[min(86%,34rem)] border-primary/20 text-foreground",
         )}
+        style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
       >
         {loading ? (
           <span className="inline-flex items-center gap-2 text-muted-foreground">
@@ -378,7 +509,14 @@ function ChatBubble({
 
 function MessageContent({ message }: { message: AiChatMessage }) {
   if (message.role === "user") {
-    return <span className="whitespace-pre-wrap">{message.content}</span>;
+    return (
+      <span
+        className="block max-w-full whitespace-pre-wrap"
+        style={{ overflowWrap: "anywhere", wordBreak: "break-all" }}
+      >
+        {message.content}
+      </span>
+    );
   }
 
   return (
@@ -389,13 +527,17 @@ function MessageContent({ message }: { message: AiChatMessage }) {
             className="text-primary underline underline-offset-2"
             href={href}
             rel="noreferrer"
+            style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
             target="_blank"
           >
             {children}
           </a>
         ),
         code: ({ children }) => (
-          <code className="rounded bg-background/80 px-1 py-0.5 font-mono text-[0.85em] text-foreground">
+          <code
+            className="rounded bg-background/80 px-1 py-0.5 font-mono text-[0.85em] text-foreground"
+            style={{ overflowWrap: "anywhere", wordBreak: "break-all" }}
+          >
             {children}
           </code>
         ),
@@ -414,14 +556,26 @@ function MessageContent({ message }: { message: AiChatMessage }) {
             {children}
           </h3>
         ),
-        li: ({ children }) => <li className="pl-1">{children}</li>,
+        li: ({ children }) => (
+          <li
+            className="pl-1"
+            style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
+          >
+            {children}
+          </li>
+        ),
         ol: ({ children }) => (
           <ol className="mb-3 ml-4 list-decimal space-y-1 last:mb-0">
             {children}
           </ol>
         ),
         p: ({ children }) => (
-          <p className="mb-3 whitespace-pre-wrap last:mb-0">{children}</p>
+          <p
+            className="mb-3 whitespace-pre-wrap last:mb-0"
+            style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
+          >
+            {children}
+          </p>
         ),
         pre: ({ children }) => (
           <pre className="mb-3 overflow-x-auto rounded-md border border-border bg-background p-3 text-xs leading-5 last:mb-0">

@@ -40,6 +40,7 @@ export type AiProviderConfig = {
 export type WorkspaceAiSummary = {
   activeColumnCount: number;
   dueSoonCount: number;
+  focusTasks: WorkspaceAiSummaryTask[];
   inProgressCount: number;
   memberCount: number;
   openTaskCount: number;
@@ -47,6 +48,17 @@ export type WorkspaceAiSummary = {
   userName: string;
   workspaceName: string;
   workspaceSlug: string;
+};
+
+export type WorkspaceAiSummaryTask = {
+  boardName: string;
+  boardSlug: string;
+  columnName: string;
+  due_date: string | null;
+  id: number;
+  priority: "none" | "low" | "medium" | "high" | "urgent";
+  projectName: string;
+  title: string;
 };
 
 export type WorkspaceAiAvailability = {

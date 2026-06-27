@@ -1,7 +1,10 @@
 import "server-only";
 
 import OpenAI from "openai";
-import type { ChatCompletionCreateParamsNonStreaming } from "openai/resources/chat/completions";
+import type {
+  ChatCompletionCreateParamsNonStreaming,
+  ChatCompletionCreateParamsStreaming,
+} from "openai/resources/chat/completions";
 
 import type {
   AiActionResult,
@@ -24,12 +27,15 @@ type NvidiaChatCompletionMessage = {
   reasoning_content?: string | null;
 };
 
-type NvidiaChatCompletionRequest = ChatCompletionCreateParamsNonStreaming & {
-  chat_template_kwargs: {
-    reasoning_effort: "high";
-    thinking: true;
-  };
+type NvidiaChatCompletionDelta = {
+  content?: string | null;
+  reasoning?: string | null;
+  reasoning_content?: string | null;
 };
+
+const DEFAULT_NVIDIA_MODEL = "meta/llama-4-maverick-17b-128e-instruct";
+const DEFAULT_MAX_TOKENS = 500;
+const DEFAULT_PROVIDER_TIMEOUT_MS = 12_000;
 
 export function getNvidiaConfig(): AiProviderConfig | null {
   const enabled = process.env.AI_FEATURES_ENABLED !== "false";
@@ -47,7 +53,7 @@ export function getNvidiaConfig(): AiProviderConfig | null {
   const model = firstEnv(
     process.env.NVIDIA_AI_MODEL,
     process.env.NIM_MODEL,
-    "deepseek-ai/deepseek-v4-flash",
+    DEFAULT_NVIDIA_MODEL,
   );
 
   if (!enabled) {
@@ -86,22 +92,8 @@ export async function generateWorkspaceAiReply({
   AiActionResult<{ finishReason: string | null; reply: string; usage: AiUsage | null }>
 > {
   const messages = buildWorkspaceAiMessages(summary, conversation, prompt);
-  const client = new OpenAI({
-    apiKey: provider.apiKey,
-    baseURL: provider.baseUrl,
-  });
-  const requestBody: NvidiaChatCompletionRequest = {
-    chat_template_kwargs: {
-      reasoning_effort: "high",
-      thinking: true,
-    },
-    max_tokens: 16384,
-    messages,
-    model: provider.model,
-    stream: false,
-    temperature: 1,
-    top_p: 0.95,
-  };
+  const client = createNvidiaClient(provider);
+  const requestBody = buildChatRequest(provider.model, messages);
 
   try {
     const completion = await client.chat.completions.create(requestBody);
@@ -132,6 +124,33 @@ export async function generateWorkspaceAiReply({
       ok: false,
     };
   }
+}
+
+export async function streamWorkspaceAiReply({
+  conversation,
+  prompt,
+  provider,
+  summary,
+}: GenerateWorkspaceAiReplyInput) {
+  const messages = buildWorkspaceAiMessages(summary, conversation, prompt);
+  const client = createNvidiaClient(provider);
+  const requestBody: ChatCompletionCreateParamsStreaming = {
+    ...buildChatRequest(provider.model, messages),
+    stream: true,
+  };
+
+  return client.chat.completions.create(requestBody);
+}
+
+export function extractStreamTextDelta(delta: unknown) {
+  const chunk = delta as NvidiaChatCompletionDelta;
+
+  return (
+    chunk.content ??
+    chunk.reasoning ??
+    chunk.reasoning_content ??
+    ""
+  );
 }
 
 function extractReply(message: NvidiaChatCompletionMessage | undefined) {
@@ -172,6 +191,28 @@ function normalizeUsage(usage: {
     completionTokens: usage.completion_tokens,
     promptTokens: usage.prompt_tokens,
     totalTokens: usage.total_tokens,
+  };
+}
+
+function createNvidiaClient(provider: AiProviderConfig) {
+  return new OpenAI({
+    apiKey: provider.apiKey,
+    baseURL: provider.baseUrl,
+    timeout: DEFAULT_PROVIDER_TIMEOUT_MS,
+  });
+}
+
+function buildChatRequest(
+  model: string,
+  messages: ReturnType<typeof buildWorkspaceAiMessages>,
+): ChatCompletionCreateParamsNonStreaming {
+  return {
+    max_tokens: DEFAULT_MAX_TOKENS,
+    messages,
+    model,
+    stream: false,
+    temperature: 0.45,
+    top_p: 0.9,
   };
 }
 
