@@ -14,7 +14,10 @@ import {
   formValue,
   inviteTokenSchema,
   loginSchema,
+  magicLinkSchema,
   onboardingSchema,
+  passwordResetRequestSchema,
+  passwordUpdateSchema,
   signupSchema,
 } from "@/lib/auth/validation";
 import { sendWelcomeEmail } from "@/lib/email/notifications";
@@ -134,6 +137,106 @@ export async function signup(
   redirect(parsed.data.next ?? "/onboarding");
 }
 
+export async function sendMagicLink(
+  _state: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const fields = {
+    email: formValue(formData, "email"),
+    next: formValue(formData, "next"),
+  };
+  const parsed = magicLinkSchema.safeParse(fields);
+
+  if (!parsed.success) {
+    return {
+      errors: fieldErrors(parsed.error),
+      fields,
+      message: "Check the highlighted fields.",
+    };
+  }
+
+  const supabase = await createClient();
+  const redirectTo = await buildAuthConfirmUrl(parsed.data.next ?? "/onboarding");
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email: parsed.data.email,
+    options: {
+      emailRedirectTo: redirectTo,
+      shouldCreateUser: false,
+    },
+  });
+
+  if (error) {
+    return authMessage(authEmailErrorMessage(error), fields);
+  }
+
+  return authMessage("Check your email for the magic link.", fields);
+}
+
+export async function requestPasswordReset(
+  _state: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const fields = {
+    email: formValue(formData, "email"),
+  };
+  const parsed = passwordResetRequestSchema.safeParse(fields);
+
+  if (!parsed.success) {
+    return {
+      errors: fieldErrors(parsed.error),
+      fields,
+      message: "Check the highlighted fields.",
+    };
+  }
+
+  const supabase = await createClient();
+  const redirectTo = await buildAuthConfirmUrl("/reset-password");
+
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo,
+  });
+
+  if (error && !isNonEnumeratingEmailError(error)) {
+    return authMessage(authEmailErrorMessage(error), fields);
+  }
+
+  return authMessage(
+    "If an account exists, password reset instructions were sent.",
+    fields,
+  );
+}
+
+export async function updatePassword(
+  _state: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const parsed = passwordUpdateSchema.safeParse({
+    password: formValue(formData, "password"),
+    passwordConfirm: formValue(formData, "passwordConfirm"),
+  });
+
+  if (!parsed.success) {
+    return {
+      errors: fieldErrors(parsed.error),
+      message: "Check the highlighted fields.",
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({
+    password: parsed.data.password,
+  });
+
+  if (error) {
+    return authMessage("Reset link expired. Request a new password reset.");
+  }
+
+  await supabase.auth.signOut();
+
+  redirect("/login?reset=success");
+}
+
 export async function createWorkspace(
   _state: AuthActionState,
   formData: FormData,
@@ -237,14 +340,54 @@ function isStaleSessionError(error: { code?: string; message?: string } | null) 
   );
 }
 
-async function buildWorkspaceUrl(workspaceSlug: string) {
+function authEmailErrorMessage(error: { message?: string; status?: number }) {
+  const message = error.message?.toLowerCase() ?? "";
+
+  if (error.status === 429 || message.includes("rate limit")) {
+    return "Too many emails were requested. Try again in a few minutes.";
+  }
+
+  if (message.includes("redirect")) {
+    return "Email link redirect is not configured for this site.";
+  }
+
+  if (message.includes("otp") || message.includes("signup")) {
+    return "No account was found for that email.";
+  }
+
+  return "Could not send the email link right now.";
+}
+
+function isNonEnumeratingEmailError(error: { message?: string; status?: number }) {
+  const message = error.message?.toLowerCase() ?? "";
+
+  return (
+    error.status === 400 ||
+    error.status === 422 ||
+    message.includes("user not found") ||
+    message.includes("otp") ||
+    message.includes("signup")
+  );
+}
+
+async function getRequestOrigin() {
   const headerStore = await headers();
   const origin =
     headerStore.get("origin") ??
     process.env.NEXT_PUBLIC_SITE_URL ??
     "http://localhost:3000";
 
-  return `${origin}/${workspaceSlug}`;
+  return origin.replace(/\/$/, "");
+}
+
+async function buildAuthConfirmUrl(nextPath: string) {
+  return `${await getRequestOrigin()}/auth/confirm?next=${encodeURIComponent(
+    nextPath,
+  )}`;
+}
+
+async function buildWorkspaceUrl(workspaceSlug: string) {
+  return `${await getRequestOrigin()}/${workspaceSlug}`;
 }
 
 export async function signOut() {

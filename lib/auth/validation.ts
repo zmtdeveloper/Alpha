@@ -13,6 +13,28 @@ export const loginSchema = z.object({
   next: authNextSchema,
 });
 
+export const magicLinkSchema = z.object({
+  email: z.string().trim().email("Enter a valid email address."),
+  next: authNextSchema,
+});
+
+export const passwordResetRequestSchema = z.object({
+  email: z.string().trim().email("Enter a valid email address."),
+});
+
+export const passwordUpdateSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters.")
+      .max(72, "Password must be 72 characters or fewer."),
+    passwordConfirm: z.string().min(1, "Confirm your new password."),
+  })
+  .refine((value) => value.password === value.passwordConfirm, {
+    message: "Passwords do not match.",
+    path: ["passwordConfirm"],
+  });
+
 export const signupSchema = z.object({
   fullName: z
     .string()

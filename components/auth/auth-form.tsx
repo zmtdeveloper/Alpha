@@ -4,6 +4,7 @@ import type * as React from "react";
 import Link from "next/link";
 import { useActionState } from "react";
 
+import { PasswordInput } from "@/components/auth/password-input";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { Input } from "@/components/ui/input";
 import { login, signup } from "@/lib/auth/actions";
@@ -61,6 +62,17 @@ export function AuthForm({ mode, nextPath }: AuthFormProps) {
         type="password"
       />
 
+      {!isSignup ? (
+        <div className="-mt-2 text-right text-sm">
+          <Link
+            className="font-medium text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            href="/forgot-password"
+          >
+            Forgot password?
+          </Link>
+        </div>
+      ) : null}
+
       {state.message ? (
         <p className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
           {state.message}
@@ -103,9 +115,8 @@ function Field({
       <label className="text-sm font-medium text-foreground" htmlFor={name}>
         {label}
       </label>
-      <Input
+      <FieldInput
         aria-describedby={`${name}-error`}
-        id={name}
         name={name}
         {...props}
       />
@@ -116,6 +127,20 @@ function Field({
       ) : null}
     </div>
   );
+}
+
+function FieldInput({
+  name,
+  type,
+  ...props
+}: {
+  name: string;
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  if (type === "password") {
+    return <PasswordInput id={name} name={name} {...props} />;
+  }
+
+  return <Input id={name} name={name} type={type} {...props} />;
 }
 
 function nextHref(pathname: string, nextPath?: string) {

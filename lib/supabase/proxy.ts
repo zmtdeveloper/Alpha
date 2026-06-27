@@ -4,14 +4,24 @@ import { type NextRequest, NextResponse } from "next/server";
 import type { Database } from "@/lib/database.types";
 import { getSupabaseKey, getSupabaseUrl } from "@/lib/supabase/config";
 
-const publicPaths = new Set(["/", "/login", "/pricing", "/signup"]);
+const publicPaths = new Set([
+  "/",
+  "/forgot-password",
+  "/login",
+  "/pricing",
+  "/reset-password",
+  "/signup",
+]);
 const reservedRootSegments = new Set([
   "",
   "api",
+  "auth",
+  "forgot-password",
   "invite",
   "login",
   "onboarding",
   "pricing",
+  "reset-password",
   "signup",
 ]);
 
