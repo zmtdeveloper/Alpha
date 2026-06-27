@@ -338,7 +338,7 @@ function NewWorkspaceDialog({
               defaultValue={state.fields?.workspaceName ?? ""}
               id="workspaceName"
               name="workspaceName"
-              placeholder="Alpha"
+              placeholder="Acme"
               type="text"
             />
             {fieldError(state, "workspaceName") ? (

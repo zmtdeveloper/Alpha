@@ -42,7 +42,7 @@ export function OnboardingForm({ defaultFullName }: OnboardingFormProps) {
         error={fieldError(state, "workspaceName")}
         label="Workspace name"
         name="workspaceName"
-        placeholder="Alpha"
+        placeholder="Acme"
       />
 
       {state.message ? (

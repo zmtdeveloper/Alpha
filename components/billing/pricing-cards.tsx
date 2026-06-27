@@ -44,7 +44,12 @@ export function PricingCards({
   workspaceSlug,
 }: PricingCardsProps) {
   return (
-    <section className="grid gap-3 lg:grid-cols-3">
+    <section
+      className={cn(
+        "grid gap-3 lg:grid-cols-3",
+        mode === "public" && "gap-4",
+      )}
+    >
       {billingPlans.map((plan) => (
         <PricingCard
           billingStatus={billingStatus}
@@ -75,15 +80,28 @@ function PricingCard({
   const Icon = planIcons[plan.id];
   const isCurrent = currentPlanId === plan.id;
   const isPro = plan.id === "pro";
+  const isPublic = mode === "public";
 
   return (
     <article
       className={cn(
         "task-card flex min-h-[27rem] flex-col rounded-md border border-border p-4 shadow-sm shadow-black/10",
+        isPublic &&
+          "relative min-h-[25rem] overflow-hidden bg-card/80 p-5 shadow-xl shadow-black/15",
         isCurrent && "border-primary/70",
         isPro && !isCurrent && "border-sky-300/35",
+        isPublic &&
+          isPro &&
+          !isCurrent &&
+          "border-primary/50 bg-[linear-gradient(180deg,rgb(111_106_232_/_0.14),rgb(255_255_255_/_0.035)_44%,rgb(255_255_255_/_0.02))] shadow-primary/10",
       )}
     >
+      {isPublic && isPro ? (
+        <span className="absolute right-4 top-4 rounded-md border border-primary/35 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+          Best value
+        </span>
+      ) : null}
+
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <span
@@ -96,7 +114,9 @@ function PricingCard({
             <Icon className="size-4" />
           </span>
           <div>
-            <h2 className="font-semibold">{plan.name}</h2>
+            <h2 className={cn("font-semibold", isPublic && "text-lg")}>
+              {plan.name}
+            </h2>
             <p className="text-xs text-muted-foreground">
               {plan.memberLimitLabel}
             </p>
@@ -110,14 +130,19 @@ function PricingCard({
       </div>
 
       <div className="mt-5 flex items-end gap-1">
-        <span className="text-3xl font-semibold tracking-tight">
+        <span className={cn("text-3xl font-semibold", isPublic && "text-4xl")}>
           {plan.price}
         </span>
         <span className="pb-1 text-sm text-muted-foreground">
           {plan.id === "free" ? "" : "/mo"}
         </span>
       </div>
-      <p className="mt-3 min-h-12 text-sm leading-6 text-muted-foreground">
+      <p
+        className={cn(
+          "mt-3 min-h-12 text-sm leading-6 text-muted-foreground",
+          isPublic && "min-h-16",
+        )}
+      >
         {plan.description}
       </p>
 
@@ -137,7 +162,11 @@ function PricingCard({
 
       <div className="mt-auto pt-6">
         {mode === "public" ? (
-          <Button asChild className="w-full" variant={isPro ? "default" : "outline"}>
+          <Button
+            asChild
+            className="h-11 w-full"
+            variant={isPro ? "default" : "outline"}
+          >
             <Link href={publicCtaHref}>{publicCtaLabel}</Link>
           </Button>
         ) : (

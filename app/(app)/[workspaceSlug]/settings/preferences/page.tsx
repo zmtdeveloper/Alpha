@@ -12,7 +12,7 @@ export default function PreferencesPage() {
             Preferences
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Control how Alpha looks on this device.
+            Control how the app looks on this device.
           </p>
         </div>
       </section>

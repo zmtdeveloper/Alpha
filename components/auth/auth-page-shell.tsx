@@ -1,6 +1,8 @@
 import type * as React from "react";
 import Link from "next/link";
 
+import { BrandLogo } from "@/components/brand-logo";
+
 type AuthPageShellProps = {
   children: React.ReactNode;
   eyebrow: string;
@@ -17,10 +19,10 @@ export function AuthPageShell({
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[1680px] flex-col">
         <header className="flex items-center justify-between border-b border-border pb-5">
           <Link
-            className="font-mono text-sm uppercase tracking-[0.28em] text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             href="/"
           >
-            Alpha
+            <BrandLogo />
           </Link>
         </header>
 

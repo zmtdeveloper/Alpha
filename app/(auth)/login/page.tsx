@@ -21,7 +21,7 @@ export default async function LoginPage({
   const nextPath = sanitizeNextPath(next);
 
   return (
-    <AuthPageShell eyebrow="Secure access" title="Sign in to Alpha">
+    <AuthPageShell eyebrow="Secure access" title="Sign in to your workspace">
       <AuthForm mode="login" nextPath={nextPath} />
     </AuthPageShell>
   );

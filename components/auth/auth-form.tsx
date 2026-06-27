@@ -72,7 +72,7 @@ export function AuthForm({ mode, nextPath }: AuthFormProps) {
       </SubmitButton>
 
       <p className="text-center text-sm text-muted-foreground">
-        {isSignup ? "Already have an account?" : "New to Alpha?"}{" "}
+        {isSignup ? "Already have an account?" : "New here?"}{" "}
         <Link
           className="font-medium text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           href={

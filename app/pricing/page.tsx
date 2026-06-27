@@ -1,7 +1,9 @@
 import { ArrowLeft, ArrowRight, CheckCircle2, CreditCard } from "lucide-react";
 import Link from "next/link";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { PricingCards } from "@/components/billing/pricing-cards";
+import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser, getWorkspaceMemberships } from "@/lib/auth/data";
 
@@ -20,11 +22,11 @@ export default async function PricingPage() {
     <main className="min-h-screen bg-background text-foreground">
       <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
         <Link
-          className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+          className="inline-flex items-center gap-3 rounded-md text-sm font-medium text-muted-foreground transition hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
           href="/"
         >
           <ArrowLeft className="size-4" />
-          Alpha
+          <BrandLogo />
         </Link>
         <div className="flex items-center gap-2">
           <Button asChild size="sm" variant="ghost">
@@ -96,6 +98,8 @@ export default async function PricingPage() {
           publicCtaLabel={ctaLabel}
         />
       </div>
+
+      <SiteFooter />
     </main>
   );
 }
