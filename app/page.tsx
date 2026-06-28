@@ -128,8 +128,8 @@ export default async function Home() {
           </div>
         </header>
 
-        <div className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-7xl flex-col items-center px-5 pt-20 text-center sm:px-8 sm:pt-24 lg:px-10">
-          <div className="mt-8 inline-flex h-8 items-center gap-2 rounded-full border border-border bg-card/75 px-3 text-sm text-muted-foreground shadow-sm shadow-black/20 sm:mt-10">
+        <div className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-7xl flex-col items-center px-5 pt-10 text-center sm:px-8 sm:pt-12 lg:px-10">
+          <div className="mt-4 inline-flex h-8 items-center gap-2 rounded-full border border-border bg-card/75 px-3 text-sm text-muted-foreground shadow-sm shadow-black/20 sm:mt-5">
             <Bot className="size-3.5 text-primary" />
             Kanban-first project management
           </div>
